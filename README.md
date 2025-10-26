@@ -1,6 +1,6 @@
 # EpiTrello
 
-A modern, beautiful Kanban board application built with Vue 3, TypeScript, and Tailwind CSS.
+A modern, intuitive Kanban board application
 
 ## 🌟 Features
 
@@ -61,5 +61,5 @@ This project is part of the Epitech curriculum.
 
 ## 👨‍💻 Authors
 
-Maxime Gregoire
-Mathis Legrand
+- Maxime Gregoire
+- Mathis Legrand
