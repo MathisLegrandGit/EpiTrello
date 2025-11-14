@@ -1,0 +1,127 @@
+### Variables
+@baseUrl = http://localhost:3000
+@boardId = YOUR_BOARD_ID
+@listId = YOUR_LIST_ID
+@cardId = YOUR_CARD_ID
+
+### ========================================
+### BOARDS
+### ========================================
+
+### Get all boards
+GET {{baseUrl}}/boards
+
+### Get a specific board
+GET {{baseUrl}}/boards/{{boardId}}
+
+### Create a new board
+POST {{baseUrl}}/boards
+Content-Type: application/json
+
+{
+  "title": "Mon Premier Tableau",
+  "description": "Description de mon tableau"
+}
+
+### Update a board
+PUT {{baseUrl}}/boards/{{boardId}}
+Content-Type: application/json
+
+{
+  "title": "Tableau Modifié",
+  "description": "Nouvelle description"
+}
+
+### Delete a board
+DELETE {{baseUrl}}/boards/{{boardId}}
+
+
+### ========================================
+### LISTS
+### ========================================
+
+### Get all lists
+GET {{baseUrl}}/lists
+
+### Get lists by board ID
+GET {{baseUrl}}/lists?boardId={{boardId}}
+
+### Get a specific list
+GET {{baseUrl}}/lists/{{listId}}
+
+### Create a new list
+POST {{baseUrl}}/lists
+Content-Type: application/json
+
+{
+  "board_id": "{{boardId}}",
+  "title": "À faire",
+  "position": 0
+}
+
+### Update a list
+PUT {{baseUrl}}/lists/{{listId}}
+Content-Type: application/json
+
+{
+  "title": "En cours",
+  "position": 1
+}
+
+### Delete a list
+DELETE {{baseUrl}}/lists/{{listId}}
+
+
+### ========================================
+### CARDS
+### ========================================
+
+### Get all cards
+GET {{baseUrl}}/cards
+
+### Get cards by list ID
+GET {{baseUrl}}/cards?listId={{listId}}
+
+### Get a specific card
+GET {{baseUrl}}/cards/{{cardId}}
+
+### Create a new card
+POST {{baseUrl}}/cards
+Content-Type: application/json
+
+{
+  "list_id": "{{listId}}",
+  "title": "Ma première tâche",
+  "description": "Description détaillée de la tâche",
+  "position": 0
+}
+
+### Update a card
+PUT {{baseUrl}}/cards/{{cardId}}
+Content-Type: application/json
+
+{
+  "title": "Tâche mise à jour",
+  "description": "Nouvelle description",
+  "position": 2
+}
+
+### Move card to another list
+PUT {{baseUrl}}/cards/{{cardId}}
+Content-Type: application/json
+
+{
+  "list_id": "NEW_LIST_ID",
+  "position": 0
+}
+
+### Delete a card
+DELETE {{baseUrl}}/cards/{{cardId}}
+
+
+### ========================================
+### HEALTH CHECK
+### ========================================
+
+### Check if API is running
+GET {{baseUrl}}
