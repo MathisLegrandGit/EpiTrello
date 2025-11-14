@@ -1,0 +1,40 @@
+### Variables
+@baseUrl = http://localhost:3000
+@email = test@example.com
+@password = password123
+@accessToken = eyJhbGciOiJIUzI1NiIsImtpZCI6ImNicFZOZUpCY05hemxLa1QiLCJ0eXAiOiJKV1QifQ.eyJpc3MiOiJodHRwczovL3NyZXdkbWlreWVyeXZ2aWZnbGtoLnN1cGFiYXNlLmNvL2F1dGgvdjEiLCJzdWIiOiI2MzFiMzg1OS1iYzM0LTQyOTktOTcxNC03NDhiMTczM2I0MTgiLCJhdWQiOiJhdXRoZW50aWNhdGVkIiwiZXhwIjoxNzYzMTM0ODQzLCJpYXQiOjE3NjMxMzEyNDMsImVtYWlsIjoibWdyZWdvaXJlLnBlcnNvQGdtYWlsLmNvbSIsInBob25lIjoiIiwiYXBwX21ldGFkYXRhIjp7InByb3ZpZGVyIjoiZW1haWwiLCJwcm92aWRlcnMiOlsiZW1haWwiXX0sInVzZXJfbWV0YWRhdGEiOnsiZW1haWwiOiJtZ3JlZ29pcmUucGVyc29AZ21haWwuY29tIiwiZW1haWxfdmVyaWZpZWQiOnRydWUsInBob25lX3ZlcmlmaWVkIjpmYWxzZSwic3ViIjoiNjMxYjM4NTktYmMzNC00Mjk5LTk3MTQtNzQ4YjE3MzNiNDE4In0sInJvbGUiOiJhdXRoZW50aWNhdGVkIiwiYWFsIjoiYWFsMSIsImFtciI6W3sibWV0aG9kIjoicGFzc3dvcmQiLCJ0aW1lc3RhbXAiOjE3NjMxMzEyNDN9XSwic2Vzc2lvbl9pZCI6IjMzYmJmM2VlLWE2OTQtNDc5Yy05YjhlLTkwZjU2YjRmZTEzMCIsImlzX2Fub255bW91cyI6ZmFsc2V9.hh7AHZc0C9Br4sdrFc9O0Gz9PifylkyE9rh9cfIXb0E
+
+### ========================================
+### AUTHENTICATION
+### ========================================
+
+### Sign Up (Create new account)
+POST {{baseUrl}}/auth/signup
+Content-Type: application/json
+
+{
+  "email": "mgregoire.perso@gmail.com",
+  "password": "password"
+}
+
+### Login (Sign in with existing account)
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "mgregoire.perso@gmail.com",
+  "password": "password"
+}
+
+### Logout
+POST {{baseUrl}}/auth/logout
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+### ========================================
+### NOTES
+### ========================================
+# Après avoir créé un compte ou vous être connecté :
+# 1. Copiez le "access_token" depuis la réponse
+# 2. Remplacez @accessToken ci-dessus avec ce token
+# 3. Utilisez ce token dans les headers Authorization des autres endpoints

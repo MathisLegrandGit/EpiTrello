@@ -6,6 +6,7 @@ import { BoardsModule } from './boards/boards.module';
 import { ListsModule } from './lists/lists.module';
 import { CardsModule } from './cards/cards.module';
 import { SupabaseModule } from './supabase/supabase.module';
+import { AuthModule } from './auth/auth.module';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { SupabaseModule } from './supabase/supabase.module';
     ListsModule,
     CardsModule,
     SupabaseModule,
+    AuthModule,
   ],
   controllers: [AppController],
   providers: [AppService],
