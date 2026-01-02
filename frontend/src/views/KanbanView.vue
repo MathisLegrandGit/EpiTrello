@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import Button from '@/components/ui/button.vue'
 import Card from '@/components/ui/card.vue'
 import Input from '@/components/ui/input.vue'
@@ -9,58 +9,66 @@ import DialogHeader from '@/components/ui/dialogHeader.vue'
 import DialogTitle from '@/components/ui/dialogTitle.vue'
 import DialogDescription from '@/components/ui/dialogDescription.vue'
 import DialogFooter from '@/components/ui/dialogFooter.vue'
-
-interface Card {
-  id: number
-  title: string
-  description: string
-}
+import { listsApi, cardsApi, type Card as CardType, type List } from '@/services/api'
 
 interface Column {
-  id: number
+  id: string
   name: string
-  cards: Card[]
+  position: number
+  cards: CardType[]
 }
 
-const columns = ref<Column[]>([
-  {
-    id: 1,
-    name: 'To Do',
-    cards: [
-      { id: 1, title: 'Set up project repository', description: 'Initialize Git and configure basic structure' },
-      { id: 2, title: 'Design database schema', description: 'Create ERD and define relationships' },
-    ],
-  },
-  {
-    id: 2,
-    name: 'In Progress',
-    cards: [
-      { id: 3, title: 'Implement authentication', description: 'Add JWT-based user authentication' },
-    ],
-  },
-  {
-    id: 3,
-    name: 'Done',
-    cards: [
-      { id: 4, title: 'Setup Tailwind CSS', description: 'Configure Tailwind v4 with Vue' },
-    ],
-  },
-])
+const columns = ref<Column[]>([])
+const isLoading = ref(true)
+const error = ref<string | null>(null)
 
 // Dialog state
 const isDialogOpen = ref(false)
 const dialogMode = ref<'add' | 'edit'>('add')
-const selectedColumnId = ref<number | null>(null)
-const selectedCardId = ref<number | null>(null)
+const selectedColumnId = ref<string | null>(null)
+const selectedCardId = ref<string | null>(null)
 
 // Form data
 const cardTitle = ref('')
 const cardDescription = ref('')
 
 // Drag and drop state
-const draggedCard = ref<{ card: Card; columnId: number } | null>(null)
+const draggedCard = ref<{ card: CardType; columnId: string } | null>(null)
 
-function openAddDialog(columnId: number) {
+// Fetch data from API
+async function fetchData() {
+  try {
+    isLoading.value = true
+    error.value = null
+
+    // Fetch lists and cards
+    const [lists, cards] = await Promise.all([
+      listsApi.getAll(),
+      cardsApi.getAll()
+    ])
+
+    // Group cards by list_id
+    columns.value = lists
+      .sort((a, b) => a.position - b.position)
+      .map(list => ({
+        id: list.id!,
+        name: list.name,
+        position: list.position,
+        cards: cards
+          .filter(card => card.list_id === list.id)
+          .sort((a, b) => a.position - b.position)
+      }))
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : 'Failed to load data'
+    console.error('Error fetching data:', err)
+  } finally {
+    isLoading.value = false
+  }
+}
+
+onMounted(fetchData)
+
+function openAddDialog(columnId: string) {
   dialogMode.value = 'add'
   selectedColumnId.value = columnId
   cardTitle.value = ''
@@ -68,50 +76,70 @@ function openAddDialog(columnId: number) {
   isDialogOpen.value = true
 }
 
-function openEditDialog(columnId: number, cardId: number) {
+function openEditDialog(columnId: string, cardId: string) {
   dialogMode.value = 'edit'
   selectedColumnId.value = columnId
   selectedCardId.value = cardId
-  
+
   const column = columns.value.find((c) => c.id === columnId)
   const card = column?.cards.find((c) => c.id === cardId)
-  
+
   if (card) {
     cardTitle.value = card.title
-    cardDescription.value = card.description
+    cardDescription.value = card.description || ''
   }
-  
+
   isDialogOpen.value = true
 }
 
-function saveCard() {
+async function saveCard() {
   if (!cardTitle.value.trim()) return
 
-  if (dialogMode.value === 'add' && selectedColumnId.value) {
-    const column = columns.value.find((c) => c.id === selectedColumnId.value)
-    if (column) {
-      column.cards.push({
-        id: Date.now(),
+  try {
+    if (dialogMode.value === 'add' && selectedColumnId.value) {
+      const column = columns.value.find((c) => c.id === selectedColumnId.value)
+      const maxPosition = column ? Math.max(0, ...column.cards.map(c => c.position)) : 0
+
+      const newCard = await cardsApi.create({
+        list_id: selectedColumnId.value,
+        title: cardTitle.value,
+        description: cardDescription.value,
+        position: maxPosition + 1,
+      })
+
+      if (column) {
+        column.cards.push(newCard)
+      }
+    } else if (dialogMode.value === 'edit' && selectedColumnId.value && selectedCardId.value) {
+      const updatedCard = await cardsApi.update(selectedCardId.value, {
         title: cardTitle.value,
         description: cardDescription.value,
       })
+
+      const column = columns.value.find((c) => c.id === selectedColumnId.value)
+      const cardIndex = column?.cards.findIndex((c) => c.id === selectedCardId.value)
+      if (column && cardIndex !== undefined && cardIndex >= 0) {
+        column.cards[cardIndex] = updatedCard
+      }
     }
-  } else if (dialogMode.value === 'edit' && selectedColumnId.value && selectedCardId.value) {
-    const column = columns.value.find((c) => c.id === selectedColumnId.value)
-    const card = column?.cards.find((c) => c.id === selectedCardId.value)
-    if (card) {
-      card.title = cardTitle.value
-      card.description = cardDescription.value
-    }
+  } catch (err) {
+    console.error('Error saving card:', err)
+    error.value = err instanceof Error ? err.message : 'Failed to save card'
   }
 
   closeDialog()
 }
 
-function deleteCard(columnId: number, cardId: number) {
-  const column = columns.value.find((c) => c.id === columnId)
-  if (column) {
-    column.cards = column.cards.filter((c) => c.id !== cardId)
+async function deleteCard(columnId: string, cardId: string) {
+  try {
+    await cardsApi.delete(cardId)
+    const column = columns.value.find((c) => c.id === columnId)
+    if (column) {
+      column.cards = column.cards.filter((c) => c.id !== cardId)
+    }
+  } catch (err) {
+    console.error('Error deleting card:', err)
+    error.value = err instanceof Error ? err.message : 'Failed to delete card'
   }
 }
 
@@ -124,7 +152,7 @@ function closeDialog() {
 }
 
 // Drag and drop functions
-function onDragStart(card: Card, columnId: number) {
+function onDragStart(card: CardType, columnId: string) {
   draggedCard.value = { card, columnId }
 }
 
@@ -132,21 +160,40 @@ function onDragOver(event: DragEvent) {
   event.preventDefault()
 }
 
-function onDrop(targetColumnId: number) {
+async function onDrop(targetColumnId: string) {
   if (!draggedCard.value) return
 
   const { card, columnId: sourceColumnId } = draggedCard.value
 
-  // Remove from source column
-  const sourceColumn = columns.value.find((c) => c.id === sourceColumnId)
-  if (sourceColumn) {
-    sourceColumn.cards = sourceColumn.cards.filter((c) => c.id !== card.id)
+  // Skip if dropped on same column
+  if (sourceColumnId === targetColumnId) {
+    draggedCard.value = null
+    return
   }
 
-  // Add to target column
-  const targetColumn = columns.value.find((c) => c.id === targetColumnId)
-  if (targetColumn) {
-    targetColumn.cards.push(card)
+  try {
+    // Calculate new position (add to end of target column)
+    const targetColumn = columns.value.find((c) => c.id === targetColumnId)
+    const maxPosition = targetColumn ? Math.max(0, ...targetColumn.cards.map(c => c.position)) : 0
+
+    // Update card in backend
+    await cardsApi.update(card.id!, {
+      list_id: targetColumnId,
+      position: maxPosition + 1,
+    })
+
+    // Update local state
+    const sourceColumn = columns.value.find((c) => c.id === sourceColumnId)
+    if (sourceColumn) {
+      sourceColumn.cards = sourceColumn.cards.filter((c) => c.id !== card.id)
+    }
+
+    if (targetColumn) {
+      targetColumn.cards.push({ ...card, list_id: targetColumnId, position: maxPosition + 1 })
+    }
+  } catch (err) {
+    console.error('Error moving card:', err)
+    error.value = err instanceof Error ? err.message : 'Failed to move card'
   }
 
   draggedCard.value = null
@@ -161,25 +208,30 @@ function onDrop(targetColumnId: number) {
         <p class="text-slate-600">Organize your tasks with a beautiful Kanban board</p>
       </div>
 
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div
-          v-for="column in columns"
-          :key="column.id"
-          class="flex flex-col"
-          @dragover="onDragOver"
-          @drop="onDrop(column.id)"
-        >
+      <!-- Loading State -->
+      <div v-if="isLoading" class="flex items-center justify-center h-64">
+        <div class="text-slate-600">Loading...</div>
+      </div>
+
+      <!-- Error State -->
+      <div v-else-if="error" class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+        {{ error }}
+        <Button size="sm" variant="outline" class="ml-4" @click="fetchData">Retry</Button>
+      </div>
+
+      <!-- Kanban Board -->
+      <div v-else class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div v-for="column in columns" :key="column.id" class="flex flex-col" @dragover="onDragOver"
+          @drop="onDrop(column.id)">
           <!-- Column Header -->
           <div class="mb-4 flex items-center justify-between">
             <div class="flex items-center gap-3">
-              <div
-                class="w-3 h-3 rounded-full"
-                :class="{
-                  'bg-blue-500': column.name === 'To Do',
-                  'bg-yellow-500': column.name === 'In Progress',
-                  'bg-green-500': column.name === 'Done',
-                }"
-              />
+              <div class="w-3 h-3 rounded-full" :class="{
+                'bg-blue-500': column.name === 'To Do',
+                'bg-yellow-500': column.name === 'In Progress',
+                'bg-green-500': column.name === 'Done',
+                'bg-slate-400': !['To Do', 'In Progress', 'Done'].includes(column.name),
+              }" />
               <h2 class="text-xl font-semibold text-slate-800">
                 {{ column.name }}
               </h2>
@@ -188,42 +240,26 @@ function onDrop(targetColumnId: number) {
               </span>
             </div>
             <Button size="sm" variant="ghost" @click="openAddDialog(column.id)">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                class="h-5 w-5"
-                viewBox="0 0 20 20"
-                fill="currentColor"
-              >
-                <path
-                  fill-rule="evenodd"
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd"
                   d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z"
-                  clip-rule="evenodd"
-                />
+                  clip-rule="evenodd" />
               </svg>
             </Button>
           </div>
 
           <!-- Cards Container -->
           <div class="flex-1 space-y-3 min-h-[200px]">
-            <Card
-              v-for="card in column.cards"
-              :key="card.id"
-              class="p-4 cursor-move hover:shadow-lg transition-shadow"
-              draggable="true"
-              @dragstart="onDragStart(card, column.id)"
-            >
+            <Card v-for="card in column.cards" :key="card.id" class="p-4 cursor-move hover:shadow-lg transition-shadow"
+              draggable="true" @dragstart="onDragStart(card, column.id)">
               <div class="space-y-2">
                 <h3 class="font-medium text-slate-900">{{ card.title }}</h3>
                 <p class="text-sm text-slate-600">{{ card.description }}</p>
                 <div class="flex gap-2 pt-2">
-                  <Button size="sm" variant="outline" @click="openEditDialog(column.id, card.id)">
+                  <Button size="sm" variant="outline" @click="openEditDialog(column.id, card.id!)">
                     Edit
                   </Button>
-                  <Button
-                    size="sm"
-                    variant="destructive"
-                    @click="deleteCard(column.id, card.id)"
-                  >
+                  <Button size="sm" variant="destructive" @click="deleteCard(column.id, card.id!)">
                     Delete
                   </Button>
                 </div>
@@ -231,10 +267,8 @@ function onDrop(targetColumnId: number) {
             </Card>
 
             <!-- Empty state -->
-            <div
-              v-if="column.cards.length === 0"
-              class="flex items-center justify-center h-32 border-2 border-dashed border-slate-300 rounded-lg text-slate-400"
-            >
+            <div v-if="column.cards.length === 0"
+              class="flex items-center justify-center h-32 border-2 border-dashed border-slate-300 rounded-lg text-slate-400">
               <p class="text-sm">Drop cards here</p>
             </div>
           </div>
@@ -255,19 +289,11 @@ function onDrop(targetColumnId: number) {
         <div class="space-y-4 py-4">
           <div class="space-y-2">
             <label class="text-sm font-medium text-slate-900">Title</label>
-            <Input
-              v-model="cardTitle"
-              placeholder="Enter card title"
-              @keyup.enter="saveCard"
-            />
+            <Input v-model="cardTitle" placeholder="Enter card title" @keyup.enter="saveCard" />
           </div>
           <div class="space-y-2">
             <label class="text-sm font-medium text-slate-900">Description</label>
-            <Input
-              v-model="cardDescription"
-              placeholder="Enter card description"
-              @keyup.enter="saveCard"
-            />
+            <Input v-model="cardDescription" placeholder="Enter card description" @keyup.enter="saveCard" />
           </div>
         </div>
 

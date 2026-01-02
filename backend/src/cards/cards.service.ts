@@ -13,7 +13,7 @@ export interface Card {
 
 @Injectable()
 export class CardsService {
-  constructor(private supabaseService: SupabaseService) {}
+  constructor(private supabaseService: SupabaseService) { }
 
   async findAll(listId?: string): Promise<Card[]> {
     let query = this.supabaseService
