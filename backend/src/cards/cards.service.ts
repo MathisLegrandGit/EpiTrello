@@ -7,6 +7,7 @@ export interface Card {
   title: string;
   description?: string;
   position: number;
+  label_id?: string;
   created_at?: string;
   updated_at?: string;
 }

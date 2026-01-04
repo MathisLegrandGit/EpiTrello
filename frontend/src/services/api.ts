@@ -7,6 +7,7 @@ export interface Card {
     title: string;
     description?: string;
     position: number;
+    label_id?: string | null;
     created_at?: string;
     updated_at?: string;
 }
@@ -14,7 +15,7 @@ export interface Card {
 export interface List {
     id?: string;
     board_id: string;
-    name: string;
+    title: string;
     position: number;
     created_at?: string;
 }
@@ -22,6 +23,14 @@ export interface List {
 export interface Board {
     id?: string;
     name: string;
+    created_at?: string;
+}
+
+export interface Label {
+    id?: string;
+    board_id: string;
+    name: string;
+    color: string;
     created_at?: string;
 }
 
@@ -40,7 +49,12 @@ async function fetchApi<T>(endpoint: string, options?: RequestInit): Promise<T> 
         throw new Error(error.message || `HTTP ${response.status}`);
     }
 
-    return response.json();
+    // Handle empty responses (like DELETE)
+    const text = await response.text();
+    if (!text) {
+        return undefined as T;
+    }
+    return JSON.parse(text);
 }
 
 // Boards API
@@ -86,4 +100,19 @@ export const cardsApi = {
         body: JSON.stringify(card),
     }),
     delete: (id: string) => fetchApi<void>(`/cards/${id}`, { method: 'DELETE' }),
+};
+
+// Labels API
+export const labelsApi = {
+    getAll: (boardId?: string) => fetchApi<Label[]>(boardId ? `/labels?boardId=${boardId}` : '/labels'),
+    getOne: (id: string) => fetchApi<Label>(`/labels/${id}`),
+    create: (label: Partial<Label>) => fetchApi<Label>('/labels', {
+        method: 'POST',
+        body: JSON.stringify(label),
+    }),
+    update: (id: string, label: Partial<Label>) => fetchApi<Label>(`/labels/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(label),
+    }),
+    delete: (id: string) => fetchApi<void>(`/labels/${id}`, { method: 'DELETE' }),
 };

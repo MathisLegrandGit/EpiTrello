@@ -21,19 +21,13 @@ const emit = defineEmits<{
 
 const classes = computed(() =>
   cn(
-    'flex h-9 w-full rounded-md border border-[hsl(var(--color-input))] bg-transparent px-3 py-1 text-base shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-[hsl(var(--color-foreground))] placeholder:text-[hsl(var(--color-muted-foreground))] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[hsl(var(--color-ring))] disabled:cursor-not-allowed disabled:opacity-50 md:text-sm',
+    'flex h-11 w-full rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm shadow-sm transition-all duration-200 placeholder:text-slate-400 focus:outline-none focus:border-slate-300 disabled:cursor-not-allowed disabled:opacity-50',
     props.class,
   ),
 )
 </script>
 
 <template>
-  <input
-    :type="type"
-    :value="modelValue"
-    :placeholder="placeholder"
-    :disabled="disabled"
-    :class="classes"
-    @input="emit('update:modelValue', ($event.target as HTMLInputElement).value)"
-  />
+  <input :type="type" :value="modelValue" :placeholder="placeholder" :disabled="disabled" :class="classes"
+    @input="emit('update:modelValue', ($event.target as HTMLInputElement).value)" />
 </template>

@@ -10,8 +10,7 @@ const props = defineProps<Props>()
 
 <template>
   <div
-    :class="cn('grid w-full max-w-lg gap-4 border border-[hsl(var(--color-border))] bg-[hsl(var(--color-background))] p-6 shadow-lg sm:rounded-lg', props.class)"
-  >
+    :class="cn('grid w-full max-w-lg gap-4 border border-slate-200/50 bg-white/95 backdrop-blur-xl p-6 shadow-2xl rounded-2xl animate-scale-in', props.class)">
     <slot />
   </div>
 </template>
