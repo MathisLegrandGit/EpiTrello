@@ -1,19 +1,16 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed, nextTick } from 'vue'
 import Button from '@/components/ui/button.vue'
-import Input from '@/components/ui/input.vue'
-import Dialog from '@/components/ui/dialog.vue'
-import DialogContent from '@/components/ui/dialogContent.vue'
-import DialogHeader from '@/components/ui/dialogHeader.vue'
-import DialogTitle from '@/components/ui/dialogTitle.vue'
-import DialogDescription from '@/components/ui/dialogDescription.vue'
-import DialogFooter from '@/components/ui/dialogFooter.vue'
-import { listsApi, cardsApi, labelsApi, type Card as CardType, type Label } from '@/services/api'
+import CardDetailModal from '@/components/CardDetailModal.vue'
+import SettingsModal from '@/components/SettingsModal.vue'
+import { listsApi, cardsApi, labelsApi, boardsApi, type Card as CardType, type Label } from '@/services/api'
+import { useAuth } from '@/composables/useAuth'
 
 interface Column {
   id: string
   title: string
   position: number
+  color?: string
   cards: CardType[]
 }
 
@@ -43,13 +40,12 @@ const selectedCard = ref<CardType | null>(null)
 const selectedCardColumnId = ref<string | null>(null)
 const editingCardTitle = ref('')
 const editingCardDescription = ref('')
-const editingCardLabelId = ref<string | null>(null)
+const editingCardLabelIds = ref<string[]>([])
 
-// New label creation
-const isCreatingLabel = ref(false)
-const newLabelName = ref('')
-const newLabelColor = ref('#3b82f6')
-const labelColors = ['#ef4444', '#f97316', '#eab308', '#22c55e', '#14b8a6', '#3b82f6', '#8b5cf6', '#ec4899']
+const columnColors = ['#3b82f6', '#f97316', '#22c55e', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#eab308']
+
+// Column color picker state
+const colorPickerColumnId = ref<string | null>(null)
 
 // Custom drag state
 const isDragging = ref(false)
@@ -65,12 +61,16 @@ const dragOffsetY = ref(0)
 const smoothedRotation = ref(0)
 const DRAG_THRESHOLD = 5 // Pixels to move before considering it a drag
 
-// Column dialog state
-const isColumnDialogOpen = ref(false)
-const columnDialogMode = ref<'add' | 'edit'>('add')
-const selectedColumnForEdit = ref<string | null>(null)
-const columnTitle = ref('')
-const BOARD_ID = '00000000-0000-0000-0000-000000000001' // Default board
+// Inline column editing state
+const editingColumnId = ref<string | null>(null)
+const editingColumnTitle = ref('')
+const columnMenuOpen = ref<string | null>(null)
+
+// Settings State
+const isSettingsOpen = ref(false)
+const { user } = useAuth()
+
+const currentBoardId = ref<string | null>(null)
 
 // Fetch data from API
 async function fetchData() {
@@ -78,10 +78,49 @@ async function fetchData() {
     isLoading.value = true
     error.value = null
 
+    if (!user.value) return
+
+    // 1. Fetch User's Boards
+    const userBoards = await boardsApi.getAll(user.value!.id)
+    let boardId: string
+
+    if (!userBoards || userBoards.length === 0) {
+      // Create default board if none exists
+      const newBoard = await boardsApi.create({
+        name: 'My First Board',
+        user_id: user.value.id
+      })
+      if (!newBoard || !newBoard.id) throw new Error('Failed to create default board')
+      boardId = newBoard.id
+
+      // Create default columns for new board
+      const defaultColumns = [
+        { title: 'To Do', position: 1, color: '#3b82f6' },
+        { title: 'In Progress', position: 2, color: '#f97316' },
+        { title: 'Done', position: 3, color: '#22c55e' }
+      ]
+
+      await Promise.all(
+        defaultColumns.map(col =>
+          listsApi.create({ board_id: boardId, title: col.title, position: col.position, color: col.color })
+        )
+      )
+    } else {
+      boardId = userBoards[0]!.id! // Load first board for now
+    }
+
+    currentBoardId.value = boardId
+
+    // 2. Fetch Lists and Cards
+    // Note: listsApi.getAll now supports boardId which we should use!
     const [lists, cards] = await Promise.all([
-      listsApi.getAll(),
+      listsApi.getAll(boardId),
       cardsApi.getAll()
     ])
+
+    // Load correct labels for this board
+    const boardLabels = await labelsApi.getAll(boardId)
+    labels.value = boardLabels
 
     columns.value = lists
       .sort((a, b) => a.position - b.position)
@@ -89,6 +128,7 @@ async function fetchData() {
         id: list.id!,
         title: list.title,
         position: list.position,
+        color: list.color,
         cards: cards
           .filter(card => card.list_id === list.id)
           .sort((a, b) => a.position - b.position)
@@ -103,7 +143,7 @@ async function fetchData() {
 
 onMounted(() => {
   fetchData()
-  fetchLabels()
+  // fetchLabels() is handled in fetchData now
   document.addEventListener('mousemove', onMouseMove)
   document.addEventListener('mouseup', onMouseUp)
 })
@@ -179,7 +219,7 @@ async function addColumnInline() {
       : 0
 
     const newList = await listsApi.create({
-      board_id: BOARD_ID,
+      board_id: currentBoardId.value!,
       title: newColumnTitle.value,
       position: maxPosition + 1,
     })
@@ -209,18 +249,19 @@ function openCardDetail(card: CardType, columnId: string) {
   selectedCardColumnId.value = columnId
   editingCardTitle.value = card.title
   editingCardDescription.value = card.description || ''
-  editingCardLabelId.value = card.label_id || null
+  editingCardLabelIds.value = [...(card.label_ids || [])]
   isCardDetailOpen.value = true
 }
 
-async function saveCardDetail() {
-  if (!selectedCard.value || !editingCardTitle.value.trim()) return
+// Handler for CardDetailModal save event
+async function handleCardSave(data: { title: string; description: string; labelIds: string[] }) {
+  if (!selectedCard.value || !selectedCardColumnId.value) return
 
   try {
     const updatedCard = await cardsApi.update(selectedCard.value.id!, {
-      title: editingCardTitle.value,
-      description: editingCardDescription.value,
-      label_id: editingCardLabelId.value,
+      title: data.title,
+      description: data.description,
+      label_ids: data.labelIds,
     })
 
     // Update in columns
@@ -257,33 +298,20 @@ function closeCardDetail() {
   isCardDetailOpen.value = false
   selectedCard.value = null
   selectedCardColumnId.value = null
-  isCreatingLabel.value = false
 }
 
 async function fetchLabels() {
+  console.log('fetchLabels called, currentBoardId:', currentBoardId.value)
+  if (!currentBoardId.value) {
+    console.warn('fetchLabels called but currentBoardId is null!')
+    return
+  }
   try {
-    labels.value = await labelsApi.getAll(BOARD_ID)
+    const result = await labelsApi.getAll(currentBoardId.value)
+    console.log('fetchLabels got result:', result)
+    labels.value = result
   } catch (err) {
     console.error('Error fetching labels:', err)
-  }
-}
-
-async function createLabel() {
-  if (!newLabelName.value.trim()) return
-
-  try {
-    const label = await labelsApi.create({
-      board_id: BOARD_ID,
-      name: newLabelName.value,
-      color: newLabelColor.value,
-    })
-    labels.value.push(label)
-    editingCardLabelId.value = label.id!
-    isCreatingLabel.value = false
-    newLabelName.value = ''
-    newLabelColor.value = '#3b82f6'
-  } catch (err) {
-    console.error('Error creating label:', err)
   }
 }
 
@@ -292,51 +320,72 @@ function getLabelById(labelId: string | null | undefined): Label | undefined {
   return labels.value.find(l => l.id === labelId)
 }
 
-// Column management functions
-function openColumnEditDialog(columnId: string, title: string) {
-  columnDialogMode.value = 'edit'
-  selectedColumnForEdit.value = columnId
-  columnTitle.value = title
-  isColumnDialogOpen.value = true
+// Inline column editing functions
+function startEditingColumn(columnId: string, title: string) {
+  editingColumnId.value = columnId
+  editingColumnTitle.value = title
+  columnMenuOpen.value = null
+  nextTick(() => {
+    const input = document.querySelector(`input[data-column-edit="${columnId}"]`) as HTMLInputElement
+    if (input) input.focus()
+  })
 }
 
-async function saveColumn() {
-  if (!columnTitle.value.trim()) return
+async function saveColumnTitle() {
+  if (!editingColumnTitle.value.trim() || !editingColumnId.value) {
+    cancelEditingColumn()
+    return
+  }
 
   try {
-    if (columnDialogMode.value === 'add') {
-      const maxPosition = Math.max(0, ...columns.value.map(c => c.position))
-      const newList = await listsApi.create({
-        board_id: BOARD_ID,
-        title: columnTitle.value,
-        position: maxPosition + 1,
-      })
-      columns.value.push({
-        id: newList.id!,
-        title: newList.title,
-        position: newList.position,
-        cards: [],
-      })
-    } else if (selectedColumnForEdit.value) {
-      await listsApi.update(selectedColumnForEdit.value, {
-        title: columnTitle.value,
-      })
-      const column = columns.value.find(c => c.id === selectedColumnForEdit.value)
-      if (column) {
-        column.title = columnTitle.value
-      }
+    await listsApi.update(editingColumnId.value, {
+      title: editingColumnTitle.value,
+    })
+    const column = columns.value.find(c => c.id === editingColumnId.value)
+    if (column) {
+      column.title = editingColumnTitle.value
     }
   } catch (err) {
     console.error('Error saving column:', err)
     error.value = err instanceof Error ? err.message : 'Failed to save column'
   }
 
-  closeColumnDialog()
+  cancelEditingColumn()
+}
+
+function cancelEditingColumn() {
+  editingColumnId.value = null
+  editingColumnTitle.value = ''
+}
+
+function toggleColumnMenu(columnId: string) {
+  columnMenuOpen.value = columnMenuOpen.value === columnId ? null : columnId
+  colorPickerColumnId.value = null // Close color picker when toggling menu
+}
+
+function toggleColorPicker(columnId: string) {
+  colorPickerColumnId.value = colorPickerColumnId.value === columnId ? null : columnId
+}
+
+async function updateColumnColor(columnId: string, color: string) {
+  try {
+    await listsApi.update(columnId, { color })
+    const column = columns.value.find(c => c.id === columnId)
+    if (column) {
+      column.color = color
+    }
+    colorPickerColumnId.value = null
+    columnMenuOpen.value = null
+  } catch (err) {
+    console.error('Error updating column color:', err)
+    error.value = err instanceof Error ? err.message : 'Failed to update column color'
+  }
 }
 
 async function deleteColumn(columnId: string) {
-  if (!confirm('Are you sure you want to delete this column and all its cards?')) return
+  // if (!confirm('Are you sure you want to delete this column and all its cards?')) return
 
+  columnMenuOpen.value = null
   const originalColumns = [...columns.value]
   columns.value = columns.value.filter(c => c.id !== columnId)
 
@@ -347,14 +396,6 @@ async function deleteColumn(columnId: string) {
     error.value = err instanceof Error ? err.message : 'Failed to delete column'
     columns.value = originalColumns
   }
-
-  closeColumnDialog()
-}
-
-function closeColumnDialog() {
-  isColumnDialogOpen.value = false
-  columnTitle.value = ''
-  selectedColumnForEdit.value = null
 }
 
 // Custom drag functions
@@ -504,7 +545,7 @@ const floatingCardStyle = computed(() => {
 </script>
 
 <template>
-  <div
+  <div @click="columnMenuOpen = null"
     :class="isDarkMode ? 'bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800' : 'bg-gradient-to-br from-slate-50 via-white to-slate-100'"
     class="min-h-screen p-8 flex flex-col transition-all duration-500">
     <div class="max-w-7xl mx-auto w-full flex-1 flex flex-col">
@@ -519,24 +560,41 @@ const floatingCardStyle = computed(() => {
           </p>
         </div>
 
-        <!-- Dark Mode Toggle -->
-        <button @click="toggleDarkMode" :class="isDarkMode ? 'bg-slate-700/80 shadow-inner' : 'bg-slate-200/80'"
-          class="relative w-16 h-8 rounded-full transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:ring-offset-2 backdrop-blur-sm">
-          <div class="absolute inset-0 flex items-center justify-between px-2">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-amber-400" viewBox="0 0 20 20"
-              fill="currentColor">
+        <!-- Header Controls -->
+        <div class="flex items-center gap-3">
+          <!-- Settings Button -->
+          <button @click="isSettingsOpen = true"
+            :class="isDarkMode ? 'bg-slate-700/80 hover:bg-slate-600 text-slate-200' : 'bg-white hover:bg-slate-50 text-slate-600 border border-slate-200'"
+            class="h-10 w-10 rounded-full flex items-center justify-center transition-all duration-300 shadow-sm hover:shadow-md active:scale-95">
+            <div v-if="user?.user_metadata?.avatar_url" class="h-8 w-8 rounded-full overflow-hidden">
+              <img :src="user.user_metadata.avatar_url" alt="User" class="h-full w-full object-cover" />
+            </div>
+            <svg v-else xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
               <path fill-rule="evenodd"
-                d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z"
+                d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z"
                 clip-rule="evenodd" />
             </svg>
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-blue-400" viewBox="0 0 20 20"
-              fill="currentColor">
-              <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z" />
-            </svg>
-          </div>
-          <span :class="isDarkMode ? 'translate-x-8' : 'translate-x-0'"
-            class="absolute top-1 left-1 w-6 h-6 bg-white rounded-full shadow-md transition-transform duration-300 ease-out z-10"></span>
-        </button>
+          </button>
+
+          <!-- Dark Mode Toggle -->
+          <button @click="toggleDarkMode" :class="isDarkMode ? 'bg-slate-700/80 shadow-inner' : 'bg-slate-200/80'"
+            class="relative w-16 h-8 rounded-full transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:ring-offset-2 backdrop-blur-sm">
+            <div class="absolute inset-0 flex items-center justify-between px-2">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-amber-400" viewBox="0 0 20 20"
+                fill="currentColor">
+                <path fill-rule="evenodd"
+                  d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z"
+                  clip-rule="evenodd" />
+              </svg>
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-blue-400" viewBox="0 0 20 20"
+                fill="currentColor">
+                <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z" />
+              </svg>
+            </div>
+            <span :class="isDarkMode ? 'translate-x-8' : 'translate-x-0'"
+              class="absolute top-1 left-1 w-6 h-6 bg-white rounded-full shadow-md transition-transform duration-300 ease-out z-10"></span>
+          </button>
+        </div>
       </div>
 
       <!-- Loading State -->
@@ -567,22 +625,85 @@ const floatingCardStyle = computed(() => {
           class="flex flex-col rounded-2xl p-5 border shadow-sm min-w-[320px] flex-shrink-0 transition-all duration-200 hover:shadow-md animate-slide-up">
           <!-- Column Header -->
           <div class="mb-4 flex items-center justify-between">
-            <div class="flex items-center gap-3">
-              <div class="w-3 h-3 rounded-full shadow-sm" :class="{
-                'bg-gradient-to-br from-blue-400 to-blue-600': column.title === 'To Do',
-                'bg-gradient-to-br from-amber-400 to-orange-500': column.title === 'Doing' || column.title === 'In Progress',
-                'bg-gradient-to-br from-emerald-400 to-green-600': column.title === 'Done',
-                'bg-gradient-to-br from-slate-400 to-slate-500': !['To Do', 'Doing', 'In Progress', 'Done'].includes(column.title),
-              }" />
-              <h2 :class="isDarkMode ? 'text-slate-100 hover:text-blue-400' : 'text-slate-800 hover:text-blue-600'"
-                class="text-lg font-semibold cursor-pointer transition-colors duration-200"
-                @click="openColumnEditDialog(column.id, column.title)">
+            <div class="flex items-center gap-3 flex-1 min-w-0">
+              <div class="w-3 h-3 rounded-full shadow-sm flex-shrink-0"
+                :style="{ backgroundColor: column.color || '#64748b' }" />
+
+              <!-- Inline title editing -->
+              <input v-if="editingColumnId === column.id" v-model="editingColumnTitle" :data-column-edit="column.id"
+                :class="isDarkMode ? 'bg-transparent text-slate-100' : 'bg-transparent text-slate-800'"
+                class="text-lg font-semibold outline-none flex-1 min-w-0" @blur="saveColumnTitle"
+                @keyup.enter="saveColumnTitle" @keyup.escape="cancelEditingColumn" />
+              <h2 v-else
+                :class="isDarkMode ? 'text-slate-100 hover:text-blue-400' : 'text-slate-800 hover:text-blue-600'"
+                class="text-lg font-semibold cursor-pointer transition-colors duration-200 truncate"
+                @click="startEditingColumn(column.id, column.title)">
                 {{ column.title }}
               </h2>
+
               <span :class="isDarkMode ? 'text-slate-400 bg-slate-700/60' : 'text-slate-500 bg-slate-100'"
-                class="text-xs font-medium rounded-full px-2.5 py-1">
+                class="text-xs font-medium rounded-full px-2.5 py-1 flex-shrink-0">
                 {{ column.cards.length }}
               </span>
+            </div>
+
+            <!-- Column Menu -->
+            <div class="relative" @click.stop>
+              <button @click="toggleColumnMenu(column.id)"
+                :class="isDarkMode ? 'text-slate-400 hover:text-slate-200 hover:bg-slate-700/50' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100'"
+                class="p-1.5 rounded-lg transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                  <path
+                    d="M6 10a2 2 0 11-4 0 2 2 0 014 0zM12 10a2 2 0 11-4 0 2 2 0 014 0zM16 12a2 2 0 100-4 2 2 0 000 4z" />
+                </svg>
+              </button>
+
+              <!-- Dropdown Menu -->
+              <div v-if="columnMenuOpen === column.id" @click.stop
+                :class="isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'"
+                class="absolute right-0 top-full mt-1 w-48 rounded-xl border shadow-lg overflow-hidden z-50">
+                <button @click="startAddingCard(column.id); columnMenuOpen = null"
+                  :class="isDarkMode ? 'text-slate-200 hover:bg-slate-700' : 'text-slate-700 hover:bg-slate-100'"
+                  class="w-full px-3 py-2.5 text-sm text-left flex items-center gap-2 transition-colors">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd"
+                      d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z"
+                      clip-rule="evenodd" />
+                  </svg>
+                  Add card
+                </button>
+
+                <!-- Color Picker Toggle -->
+                <button @click="toggleColorPicker(column.id)"
+                  :class="isDarkMode ? 'text-slate-200 hover:bg-slate-700' : 'text-slate-700 hover:bg-slate-100'"
+                  class="w-full px-3 py-2.5 text-sm text-left flex items-center gap-2 transition-colors">
+                  <div class="w-4 h-4 rounded-full border-2" :style="{ backgroundColor: column.color || '#64748b' }"
+                    :class="isDarkMode ? 'border-slate-600' : 'border-slate-300'" />
+                  Change color
+                </button>
+
+                <!-- Color Picker Grid -->
+                <div v-if="colorPickerColumnId === column.id" class="px-3 py-2 border-t"
+                  :class="isDarkMode ? 'border-slate-700' : 'border-slate-200'">
+                  <div class="grid grid-cols-4 gap-2">
+                    <button v-for="color in columnColors" :key="color" @click="updateColumnColor(column.id, color)"
+                      class="w-8 h-8 rounded-lg transition-transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-offset-2"
+                      :class="column.color === color ? 'ring-2 ring-offset-2' : ''" :style="{ backgroundColor: color }"
+                      :title="color" />
+                  </div>
+                </div>
+
+                <button @click="deleteColumn(column.id)"
+                  :class="[isDarkMode ? 'text-red-400 hover:bg-red-500/20' : 'text-red-500 hover:bg-red-50', colorPickerColumnId === column.id ? (isDarkMode ? 'border-t border-slate-700' : 'border-t border-slate-200') : '']"
+                  class="w-full px-3 py-2.5 text-sm text-left flex items-center gap-2 transition-colors">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd"
+                      d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z"
+                      clip-rule="evenodd" />
+                  </svg>
+                  Delete column
+                </button>
+              </div>
             </div>
           </div>
 
@@ -608,12 +729,15 @@ const floatingCardStyle = computed(() => {
               class="p-3.5 cursor-pointer transition-all duration-200 select-none border rounded-xl"
               @click="openCardDetail(card, column.id)" @mousedown="onCardMouseDown($event, card, column.id)">
               <div class="space-y-2">
-                <!-- Label Badge -->
-                <div v-if="getLabelById(card.label_id)" class="flex">
-                  <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full text-white"
-                    :style="{ backgroundColor: getLabelById(card.label_id)?.color }">
-                    {{ getLabelById(card.label_id)?.name }}
-                  </span>
+                <!-- Label Badges -->
+                <div v-if="card.label_ids && card.label_ids.length > 0" class="flex flex-wrap gap-1">
+                  <template v-for="(labelId, idx) in card.label_ids" :key="idx">
+                    <span v-if="getLabelById(labelId)"
+                      class="text-[10px] font-semibold px-2 py-0.5 rounded-full text-white"
+                      :style="{ backgroundColor: getLabelById(labelId)?.color }">
+                      {{ getLabelById(labelId)?.name }}
+                    </span>
+                  </template>
                 </div>
                 <h3 :class="isDarkMode ? 'text-slate-100' : 'text-slate-700'" class="font-medium text-sm leading-snug">
                   {{ card.title }}
@@ -682,11 +806,13 @@ const floatingCardStyle = computed(() => {
         <div :class="isDarkMode ? 'bg-slate-700 border-slate-500' : 'bg-white border-blue-200'"
           class="p-3.5 rounded-xl shadow-2xl border-2 ring-4 ring-blue-500/20">
           <div class="space-y-2">
-            <div v-if="getLabelById(draggedCard.label_id)" class="flex">
-              <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full text-white"
-                :style="{ backgroundColor: getLabelById(draggedCard.label_id)?.color }">
-                {{ getLabelById(draggedCard.label_id)?.name }}
-              </span>
+            <div v-if="draggedCard.label_ids && draggedCard.label_ids.length > 0" class="flex flex-wrap gap-1">
+              <template v-for="(labelId, idx) in draggedCard.label_ids" :key="idx">
+                <span v-if="getLabelById(labelId)" class="text-[10px] font-semibold px-2 py-0.5 rounded-full text-white"
+                  :style="{ backgroundColor: getLabelById(labelId)?.color }">
+                  {{ getLabelById(labelId)?.name }}
+                </span>
+              </template>
             </div>
             <h3 :class="isDarkMode ? 'text-slate-100' : 'text-slate-700'" class="font-medium text-sm">
               {{ draggedCard.title }}
@@ -696,115 +822,14 @@ const floatingCardStyle = computed(() => {
       </div>
     </Teleport>
 
-    <!-- Column Dialog -->
-    <Dialog :open="isColumnDialogOpen" @update:open="isColumnDialogOpen = $event">
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{{ columnDialogMode === 'add' ? 'Add New Column' : 'Edit Column' }}</DialogTitle>
-          <DialogDescription>
-            {{ columnDialogMode === 'add' ? 'Create a new column for your board' : 'Rename or delete this column' }}
-          </DialogDescription>
-        </DialogHeader>
-
-        <div class="space-y-4 py-4">
-          <div class="space-y-2">
-            <label class="text-sm font-medium text-slate-900">Column Name</label>
-            <Input v-model="columnTitle" placeholder="Enter column name" @keyup.enter="saveColumn" />
-          </div>
-        </div>
-
-        <DialogFooter>
-          <div class="flex w-full justify-between">
-            <Button v-if="columnDialogMode === 'edit'" variant="destructive"
-              @click="deleteColumn(selectedColumnForEdit!)">
-              Delete Column
-            </Button>
-            <div class="flex gap-2">
-              <Button variant="outline" @click="closeColumnDialog">Cancel</Button>
-              <Button @click="saveColumn">{{ columnDialogMode === 'add' ? 'Add Column' : 'Save' }}</Button>
-            </div>
-          </div>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-
     <!-- Card Detail Modal -->
-    <Dialog :open="isCardDetailOpen" @update:open="isCardDetailOpen = $event">
-      <DialogContent class="max-w-lg">
-        <DialogHeader>
-          <DialogTitle>Card Details</DialogTitle>
-          <DialogDescription>Edit card information and manage labels</DialogDescription>
-        </DialogHeader>
+    <CardDetailModal :isOpen="isCardDetailOpen" :card="selectedCard"
+      :columnTitle="selectedCardColumnId ? (columns.find(c => c.id === selectedCardColumnId)?.title || '') : ''"
+      :labels="labels" :isDarkMode="isDarkMode" :boardId="currentBoardId" @close="closeCardDetail"
+      @save="handleCardSave" @delete="deleteCardFromDetail" @labelCreated="(label) => labels.push(label)"
+      @refresh="fetchLabels" />
 
-        <div class="space-y-5 py-4">
-          <!-- Title -->
-          <div class="space-y-2">
-            <label :class="isDarkMode ? 'text-slate-300' : 'text-slate-700'" class="text-sm font-medium">Title</label>
-            <Input v-model="editingCardTitle" :class="isDarkMode ? 'bg-slate-800 border-slate-600 text-white' : ''"
-              placeholder="Card title" />
-          </div>
-
-          <!-- Description -->
-          <div class="space-y-2">
-            <label :class="isDarkMode ? 'text-slate-300' : 'text-slate-700'"
-              class="text-sm font-medium">Description</label>
-            <textarea v-model="editingCardDescription"
-              :class="isDarkMode ? 'bg-slate-800 border-slate-600 text-white placeholder-slate-500' : 'bg-white border-slate-300'"
-              class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-              rows="3" placeholder="Add a more detailed description..."></textarea>
-          </div>
-
-          <!-- Labels -->
-          <div class="space-y-3">
-            <label :class="isDarkMode ? 'text-slate-300' : 'text-slate-700'" class="text-sm font-medium">Label</label>
-
-            <!-- Label Options -->
-            <div class="flex flex-wrap gap-2">
-              <button v-for="label in labels" :key="label.id"
-                @click="editingCardLabelId = editingCardLabelId === label.id ? null : label.id!"
-                :class="editingCardLabelId === label.id ? 'ring-2 ring-offset-2 ring-blue-500' : ''"
-                class="px-3 py-1.5 rounded-full text-sm font-medium text-white transition-all"
-                :style="{ backgroundColor: label.color }">
-                {{ label.name }}
-              </button>
-
-              <!-- Add Label Button -->
-              <button v-if="!isCreatingLabel" @click="isCreatingLabel = true"
-                :class="isDarkMode ? 'border-slate-600 text-slate-400 hover:border-slate-500' : 'border-slate-300 text-slate-500 hover:border-slate-400'"
-                class="px-3 py-1.5 rounded-full text-sm font-medium border border-dashed transition-colors">
-                + New Label
-              </button>
-            </div>
-
-            <!-- Create Label Form -->
-            <div v-if="isCreatingLabel" class="p-3 rounded-lg" :class="isDarkMode ? 'bg-slate-800' : 'bg-slate-50'">
-              <div class="space-y-3">
-                <Input v-model="newLabelName" :class="isDarkMode ? 'bg-slate-700 border-slate-600 text-white' : ''"
-                  placeholder="Label name" />
-                <div class="flex flex-wrap gap-2">
-                  <button v-for="color in labelColors" :key="color" @click="newLabelColor = color"
-                    :class="newLabelColor === color ? 'ring-2 ring-offset-1 ring-blue-500 scale-110' : ''"
-                    class="w-6 h-6 rounded-full transition-transform" :style="{ backgroundColor: color }"></button>
-                </div>
-                <div class="flex gap-2">
-                  <Button size="sm" @click="createLabel">Create</Button>
-                  <Button size="sm" variant="outline" @click="isCreatingLabel = false">Cancel</Button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <DialogFooter>
-          <div class="flex w-full justify-between">
-            <Button variant="destructive" @click="deleteCardFromDetail">Delete Card</Button>
-            <div class="flex gap-2">
-              <Button variant="outline" @click="closeCardDetail">Cancel</Button>
-              <Button @click="saveCardDetail">Save Changes</Button>
-            </div>
-          </div>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    <!-- Settings Modal -->
+    <SettingsModal :is-open="isSettingsOpen" :is-dark-mode="isDarkMode" @close="isSettingsOpen = false" />
   </div>
 </template>

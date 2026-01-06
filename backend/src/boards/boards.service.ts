@@ -3,6 +3,7 @@ import { SupabaseService } from '../supabase/supabase.service';
 
 export interface Board {
   id?: string;
+  user_id?: string;
   title: string;
   description?: string;
   created_at?: string;
@@ -11,14 +12,20 @@ export interface Board {
 
 @Injectable()
 export class BoardsService {
-  constructor(private supabaseService: SupabaseService) {}
+  constructor(private supabaseService: SupabaseService) { }
 
-  async findAll(): Promise<Board[]> {
-    const { data, error } = await this.supabaseService
+  async findAll(userId?: string): Promise<Board[]> {
+    let query = this.supabaseService
       .getClient()
       .from('boards')
       .select('*')
       .order('created_at', { ascending: false });
+
+    if (userId) {
+      query = query.eq('user_id', userId);
+    }
+
+    const { data, error } = await query;
 
     if (error) throw error;
     return data;

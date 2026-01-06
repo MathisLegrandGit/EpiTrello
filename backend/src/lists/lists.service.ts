@@ -6,6 +6,7 @@ export interface List {
   board_id: string;
   title: string;
   position: number;
+  color?: string;
   created_at?: string;
   updated_at?: string;
 }

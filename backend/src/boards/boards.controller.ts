@@ -1,14 +1,14 @@
-import { Controller, Get, Post, Put, Delete, Body, Param } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, Query } from '@nestjs/common';
 import { BoardsService } from './boards.service';
 import type { Board } from './boards.service';
 
 @Controller('boards')
 export class BoardsController {
-  constructor(private readonly boardsService: BoardsService) {}
+  constructor(private readonly boardsService: BoardsService) { }
 
   @Get()
-  findAll(): Promise<Board[]> {
-    return this.boardsService.findAll();
+  findAll(@Query('userId') userId?: string): Promise<Board[]> {
+    return this.boardsService.findAll(userId);
   }
 
   @Get(':id')

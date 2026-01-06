@@ -7,9 +7,19 @@ export interface Card {
     title: string;
     description?: string;
     position: number;
-    label_id?: string | null;
+    label_ids?: string[];
     created_at?: string;
     updated_at?: string;
+}
+
+export interface UpdateProfileData {
+    username?: string;
+    fullName?: string;
+    avatarUrl?: string;
+}
+
+export interface UpdatePasswordData {
+    password: string;
 }
 
 export interface List {
@@ -17,21 +27,46 @@ export interface List {
     board_id: string;
     title: string;
     position: number;
+    color?: string;
     created_at?: string;
 }
 
 export interface Board {
     id?: string;
+    user_id?: string;
     name: string;
     created_at?: string;
 }
 
+// ... (skipping Label to keep context small, careful here)
 export interface Label {
     id?: string;
     board_id: string;
     name: string;
     color: string;
     created_at?: string;
+}
+
+export interface User {
+    id: string;
+    email?: string;
+    user_metadata?: {
+        username?: string;
+        full_name?: string;
+        avatar_url?: string;
+        [key: string]: unknown;
+    };
+}
+
+export interface Session {
+    access_token: string;
+    refresh_token?: string;
+    expires_at?: number;
+}
+
+export interface AuthResponse {
+    user: User;
+    session: Session;
 }
 
 // Generic fetch wrapper with error handling
@@ -59,7 +94,7 @@ async function fetchApi<T>(endpoint: string, options?: RequestInit): Promise<T> 
 
 // Boards API
 export const boardsApi = {
-    getAll: () => fetchApi<Board[]>('/boards'),
+    getAll: (userId?: string) => fetchApi<Board[]>(userId ? `/boards?userId=${userId}` : '/boards'),
     getOne: (id: string) => fetchApi<Board>(`/boards/${id}`),
     create: (board: Partial<Board>) => fetchApi<Board>('/boards', {
         method: 'POST',
@@ -115,4 +150,25 @@ export const labelsApi = {
         body: JSON.stringify(label),
     }),
     delete: (id: string) => fetchApi<void>(`/labels/${id}`, { method: 'DELETE' }),
+};
+
+// Auth API
+export const authApi = {
+    signup: (credentials: { email: string; password: string; username?: string; fullName?: string }) => fetchApi<AuthResponse>('/auth/signup', {
+        method: 'POST',
+        body: JSON.stringify(credentials),
+    }),
+    login: (credentials: { identifier: string; password: string }) => fetchApi<AuthResponse>('/auth/login', {
+        method: 'POST',
+        body: JSON.stringify(credentials),
+    }),
+    logout: () => fetchApi<void>('/auth/logout', { method: 'POST' }),
+    updateProfile: (id: string, data: UpdateProfileData) => fetchApi<User>(`/auth/profile/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(data),
+    }),
+    updatePassword: (id: string, data: UpdatePasswordData) => fetchApi<void>(`/auth/password/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(data),
+    }),
 };
