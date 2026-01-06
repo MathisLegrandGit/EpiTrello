@@ -97,14 +97,14 @@ export function useAuth() {
 
             const updatedProfile = await authApi.updateProfile(user.value.id, data)
 
-            // Merge updates into local user state
-            // Note: backend returns the profile object, our user object is Supabase Auth user
-            // We need to update user_metadata or just the profile fields we track
+            // Merge updates into local user state with proper key mapping
             user.value = {
                 ...user.value,
                 user_metadata: {
                     ...user.value.user_metadata,
-                    ...data
+                    username: data.username ?? user.value.user_metadata?.username,
+                    full_name: data.fullName ?? user.value.user_metadata?.full_name,
+                    avatar_url: data.avatarUrl ?? user.value.user_metadata?.avatar_url
                 }
             }
             // Update cookie
@@ -133,6 +133,33 @@ export function useAuth() {
         }
     }
 
+    async function uploadAvatar(file: File) {
+        loading.value = true
+        error.value = null
+        try {
+            if (!user.value?.id) throw new Error('User not authenticated')
+            const avatarUrl = await authApi.uploadAvatar(user.value.id, file)
+
+            // Update local user state with new avatar URL
+            user.value = {
+                ...user.value,
+                user_metadata: {
+                    ...user.value.user_metadata,
+                    avatar_url: avatarUrl
+                }
+            }
+            // Update cookie
+            setCookie('supabase_user', JSON.stringify(user.value))
+
+            return avatarUrl
+        } catch (err: unknown) {
+            error.value = err instanceof Error ? err.message : 'Avatar upload failed'
+            throw err
+        } finally {
+            loading.value = false
+        }
+    }
+
     function handleAuthResponse(response: AuthResponse) {
         user.value = response.user
         session.value = response.session
@@ -153,6 +180,8 @@ export function useAuth() {
         logout,
         updateProfile,
         updatePassword,
+        uploadAvatar,
         isAuthenticated: () => !!user.value
     }
 }
+

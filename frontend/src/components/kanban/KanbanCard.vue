@@ -20,7 +20,7 @@ function getLabelById(labelId: string | null | undefined, labels: Label[]): Labe
 
 <template>
     <div @mousedown="emit('mousedown', $event)" :data-card-id="card.id"
-        :class="isDarkMode ? 'bg-slate-700/80 border-slate-600/50 hover:border-blue-500/50 hover:shadow-lg hover:shadow-blue-500/5' : 'bg-white border-slate-200 hover:border-blue-300 hover:shadow-md'"
+        :class="isDarkMode ? 'bg-slate-700/80 border-slate-600/50 hover:border-blue-500/50 hover:shadow-lg hover:shadow-blue-500/5' : 'bg-slate-50 border-slate-300 hover:border-blue-300 hover:shadow-md'"
         class="p-4 rounded-xl border cursor-grab active:cursor-grabbing transition-all duration-200 group">
         <!-- Label Tags -->
         <div v-if="card.label_ids && card.label_ids.length > 0" class="flex flex-wrap gap-1.5 mb-3">

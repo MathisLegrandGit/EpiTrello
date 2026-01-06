@@ -4,9 +4,9 @@ import { LabelsService } from './labels.service';
 import { SupabaseModule } from '../supabase/supabase.module';
 
 @Module({
-    imports: [SupabaseModule],
-    controllers: [LabelsController],
-    providers: [LabelsService],
-    exports: [LabelsService],
+  imports: [SupabaseModule],
+  controllers: [LabelsController],
+  providers: [LabelsService],
+  exports: [LabelsService],
 })
-export class LabelsModule { }
+export class LabelsModule {}

@@ -1,96 +1,116 @@
 <template>
     <div class="space-y-4">
         <!-- Main Password Field -->
-        <div>
-            <label
-                class="block text-slate-400 text-xs font-medium uppercase tracking-wider mb-1.5 ml-1">Password</label>
+        <div class="input-group">
+            <label class="input-label">Password</label>
             <div class="relative">
-                <input :value="modelValue" @input="onInput" :type="showPassword ? 'text' : 'password'"
-                    class="w-full bg-slate-800/50 border rounded-xl px-4 py-3 text-slate-200 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all placeholder-slate-500"
-                    :class="isValid ? 'border-slate-700' : (modelValue ? 'border-red-500/50' : 'border-slate-700')"
-                    placeholder="••••••••" />
-                <button type="button" @click="showPassword = !showPassword"
-                    class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors">
-                    <svg v-if="!showPassword" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20"
-                        fill="currentColor">
+                <div class="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none z-10">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
                         <path fill-rule="evenodd"
-                            d="M3.707 2.293a1 1 0 00-1.414 1.414l14 14a1 1 0 001.414-1.414l-1.473-1.473A10.014 10.014 0 0019.542 10C18.268 5.943 14.478 3 10 3a9.958 9.958 0 00-4.512 1.074l-1.78-1.781zm4.261 4.26l1.514 1.515a2.003 2.003 0 012.45 2.45l1.514 1.514a4 4 0 00-5.478-5.478z"
+                            d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z"
                             clip-rule="evenodd" />
-                        <path
-                            d="M12.454 16.697L9.75 13.992a4 4 0 01-3.742-3.741L2.335 6.578A9.98 9.98 0 00.458 10c1.274 4.057 5.065 7 9.542 7 .847 0 1.669-.105 2.454-.303z" />
                     </svg>
-                    <svg v-else xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20"
-                        fill="currentColor">
-                        <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
-                        <path fill-rule="evenodd"
-                            d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z"
-                            clip-rule="evenodd" />
+                </div>
+                <input :value="modelValue" @input="onInput" :type="showPassword ? 'text' : 'password'"
+                    class="input-field pr-10" :class="isValid ? '' : (modelValue ? 'border-red-500/30' : '')"
+                    placeholder="Enter password" />
+                <button type="button" @click="showPassword = !showPassword"
+                    class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-blue-400 transition-colors">
+                    <svg v-if="showPassword" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                        <circle cx="12" cy="12" r="3" />
+                    </svg>
+                    <svg v-else xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2">
+                        <path
+                            d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
+                        <line x1="1" y1="1" x2="23" y2="23" />
                     </svg>
                 </button>
             </div>
 
             <!-- Strength Meter -->
-            <div class="mt-2 h-1.5 w-full bg-slate-700/50 rounded-full overflow-hidden flex">
-                <div class="h-full transition-all duration-300 ease-out" :class="strengthColor"
+            <div class="mt-3 h-1 w-full bg-slate-800/80 rounded-full overflow-hidden">
+                <div class="h-full transition-all duration-300 ease-out rounded-full" :class="strengthColor"
                     :style="{ width: `${strengthScore}%` }"></div>
             </div>
 
-            <!-- Requirements Chips -->
-            <div v-if="modelValue && !isValid" class="mt-3 flex flex-wrap gap-2">
-                <span v-if="!hasLength"
-                    class="px-3 py-1.5 bg-slate-800 border border-slate-600/50 rounded-lg text-xs font-medium text-slate-300 shadow-sm">
-                    Add 6+ characters
+            <!-- Requirements Chips (inline) -->
+            <div v-if="modelValue && !isValid" class="mt-2 flex flex-wrap gap-1.5">
+                <span v-if="!hasLength" class="requirement-chip">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd"
+                            d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z"
+                            clip-rule="evenodd" />
+                    </svg>
+                    6+ characters
                 </span>
-                <span v-if="!hasUpper"
-                    class="px-3 py-1.5 bg-slate-800 border border-slate-600/50 rounded-lg text-xs font-medium text-slate-300 shadow-sm">
-                    Add uppercase letter
+                <span v-if="!hasUpper" class="requirement-chip">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd"
+                            d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z"
+                            clip-rule="evenodd" />
+                    </svg>
+                    Uppercase
                 </span>
-                <span v-if="!hasLower"
-                    class="px-3 py-1.5 bg-slate-800 border border-slate-600/50 rounded-lg text-xs font-medium text-slate-300 shadow-sm">
-                    Add lowercase letter
+                <span v-if="!hasLower" class="requirement-chip">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd"
+                            d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z"
+                            clip-rule="evenodd" />
+                    </svg>
+                    Lowercase
                 </span>
-                <span v-if="!hasNumber"
-                    class="px-3 py-1.5 bg-slate-800 border border-slate-600/50 rounded-lg text-xs font-medium text-slate-300 shadow-sm">
-                    Add number or symbol
+                <span v-if="!hasNumber" class="requirement-chip">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd"
+                            d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z"
+                            clip-rule="evenodd" />
+                    </svg>
+                    Number/Symbol
                 </span>
             </div>
         </div>
 
         <!-- Confirm Password Field -->
-        <div>
-            <label class="block text-slate-400 text-xs font-medium uppercase tracking-wider mb-1.5 ml-1">Confirm
-                Password</label>
+        <div class="input-group">
+            <label class="input-label">Confirm Password</label>
             <div class="relative">
-                <input v-model="confirmPassword" :type="showConfirmPassword ? 'text' : 'password'"
-                    class="w-full bg-slate-800/50 border rounded-xl px-4 py-3 text-slate-200 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all placeholder-slate-500"
-                    :class="passwordsMatch ? 'border-slate-700' : 'border-red-500/50'" placeholder="••••••••" />
-                <button type="button" @click="showConfirmPassword = !showConfirmPassword"
-                    class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors">
-                    <svg v-if="!showConfirmPassword" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5"
-                        viewBox="0 0 20 20" fill="currentColor">
+                <div class="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none z-10">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
                         <path fill-rule="evenodd"
-                            d="M3.707 2.293a1 1 0 00-1.414 1.414l14 14a1 1 0 001.414-1.414l-1.473-1.473A10.014 10.014 0 0019.542 10C18.268 5.943 14.478 3 10 3a9.958 9.958 0 00-4.512 1.074l-1.78-1.781zm4.261 4.26l1.514 1.515a2.003 2.003 0 012.45 2.45l1.514 1.514a4 4 0 00-5.478-5.478z"
+                            d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z"
                             clip-rule="evenodd" />
-                        <path
-                            d="M12.454 16.697L9.75 13.992a4 4 0 01-3.742-3.741L2.335 6.578A9.98 9.98 0 00.458 10c1.274 4.057 5.065 7 9.542 7 .847 0 1.669-.105 2.454-.303z" />
                     </svg>
-                    <svg v-else xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20"
-                        fill="currentColor">
-                        <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
-                        <path fill-rule="evenodd"
-                            d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z"
-                            clip-rule="evenodd" />
+                </div>
+                <input v-model="confirmPassword" :type="showConfirmPassword ? 'text' : 'password'"
+                    class="input-field pr-10" :class="passwordsMatch ? '' : 'border-red-500/30'"
+                    placeholder="Confirm password" />
+                <button type="button" @click="showConfirmPassword = !showConfirmPassword"
+                    class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-blue-400 transition-colors">
+                    <svg v-if="showConfirmPassword" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4"
+                        viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                        <circle cx="12" cy="12" r="3" />
+                    </svg>
+                    <svg v-else xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2">
+                        <path
+                            d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
+                        <line x1="1" y1="1" x2="23" y2="23" />
                     </svg>
                 </button>
             </div>
 
-            <!-- Confirm Strength Meter (Visual Consistency) -->
-            <div class="mt-2 h-1.5 w-full bg-slate-700/50 rounded-full overflow-hidden flex">
-                <div class="h-full transition-all duration-300 ease-out" :class="confirmStrengthColor"
-                    :style="{ width: `${confirmStrengthScore}%` }"></div>
+            <!-- Match indicator bar -->
+            <div class="mt-3 h-1 w-full bg-slate-800/80 rounded-full overflow-hidden">
+                <div class="h-full transition-all duration-300 ease-out rounded-full"
+                    :class="confirmPassword ? (passwordsMatch && confirmPassword === modelValue ? 'bg-emerald-500' : 'bg-red-500') : 'bg-transparent'"
+                    :style="{ width: confirmPassword ? '100%' : '0%' }"></div>
             </div>
 
-            <p v-if="confirmPassword && !passwordsMatch" class="mt-1 text-xs text-red-400 ml-1">
+            <p v-if="confirmPassword && !passwordsMatch" class="mt-2 text-xs text-red-400 ml-1">
                 Passwords do not match
             </p>
         </div>
@@ -124,7 +144,7 @@ const passwordsMatch = computed(() =>
     !confirmPassword.value || props.modelValue === confirmPassword.value
 )
 
-// --- Strength Logic (Main) ---
+// --- Strength Logic ---
 const strengthScore = computed(() => {
     if (!props.modelValue) return 0
     let score = 0
@@ -138,27 +158,8 @@ const strengthScore = computed(() => {
 const strengthColor = computed(() => {
     if (strengthScore.value <= 25) return 'bg-red-500'
     if (strengthScore.value <= 50) return 'bg-orange-500'
-    if (strengthScore.value <= 75) return 'bg-yellow-500'
-    return 'bg-green-500'
-})
-
-// --- Strength Logic (Confirm - Mirrored) ---
-// We calculate strength for the confirm box based on its OWN input so the bar reacts as you type
-const confirmStrengthScore = computed(() => {
-    if (!confirmPassword.value) return 0
-    let score = 0
-    if (confirmPassword.value.length >= 6) score += 25
-    if (/[A-Z]/.test(confirmPassword.value)) score += 25
-    if (/[a-z]/.test(confirmPassword.value)) score += 25
-    if (/[\d\W]/.test(confirmPassword.value)) score += 25
-    return score
-})
-
-const confirmStrengthColor = computed(() => {
-    if (confirmStrengthScore.value <= 25) return 'bg-red-500'
-    if (confirmStrengthScore.value <= 50) return 'bg-orange-500'
-    if (confirmStrengthScore.value <= 75) return 'bg-yellow-500'
-    return 'bg-green-500'
+    if (strengthScore.value <= 75) return 'bg-amber-500'
+    return 'bg-emerald-500'
 })
 
 function onInput(e: Event) {
@@ -171,5 +172,67 @@ watch([isValid, passwordsMatch, () => props.modelValue, confirmPassword], () => 
     const isComplete = isValid.value && passwordsMatch.value && !!confirmPassword.value
     emit('valid', isComplete)
 }, { immediate: true })
-
 </script>
+
+<style scoped>
+.input-group {
+    position: relative;
+}
+
+.input-label {
+    display: block;
+    color: rgb(148, 163, 184);
+    font-size: 0.6875rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.375rem;
+    margin-left: 0.25rem;
+}
+
+.input-field {
+    width: 100%;
+    background: rgba(30, 27, 50, 0.6);
+    border: 1px solid rgba(59, 130, 246, 0.2);
+    border-radius: 0.75rem;
+    padding: 0.75rem 0.875rem 0.75rem 2.5rem;
+    color: rgb(226, 232, 240);
+    font-size: 0.875rem;
+    transition: all 0.2s ease;
+}
+
+.input-field::placeholder {
+    color: rgb(100, 116, 139);
+}
+
+.input-field:focus {
+    outline: none;
+    border-color: rgba(59, 130, 246, 0.5);
+    box-shadow:
+        0 0 0 3px rgba(59, 130, 246, 0.1),
+        0 0 20px rgba(59, 130, 246, 0.1);
+}
+
+.input-field:hover:not(:focus) {
+    border-color: rgba(59, 130, 246, 0.3);
+}
+
+.requirement-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.375rem 0.625rem;
+    background: rgba(30, 27, 50, 0.8);
+    border: 1px solid rgba(59, 130, 246, 0.2);
+    border-radius: 0.5rem;
+    font-size: 0.6875rem;
+    font-weight: 500;
+    color: rgb(203, 213, 225);
+    transition: all 0.2s ease;
+}
+
+.requirement-chip:hover {
+    border-color: rgba(59, 130, 246, 0.4);
+    background: rgba(59, 130, 246, 0.1);
+}
+</style>

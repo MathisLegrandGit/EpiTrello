@@ -78,27 +78,32 @@ function saveTitle() {
 
 <template>
     <div :data-column-id="column.id"
-        :class="isDarkMode ? 'bg-slate-800/50 border-slate-700/50 backdrop-blur-sm' : 'bg-white/60 border-slate-200/60 backdrop-blur-sm'"
+        :class="isDarkMode ? 'bg-slate-800/50 border-slate-700/50 backdrop-blur-sm' : 'bg-slate-100 border-slate-300 backdrop-blur-sm'"
         class="flex flex-col rounded-2xl p-5 border shadow-sm min-w-[320px] flex-shrink-0 transition-all duration-200 hover:shadow-md animate-slide-up">
         <!-- Column Header -->
         <div class="mb-4 flex items-center justify-between">
-            <div class="flex items-center gap-3 flex-1 min-w-0">
+            <div class="flex items-center gap-3 min-w-0">
                 <div class="w-3 h-3 rounded-full shadow-sm flex-shrink-0"
                     :style="{ backgroundColor: column.color || '#64748b' }" />
 
-                <!-- Inline title editing -->
-                <input v-if="editingTitle" v-model="editingColumnTitle" :data-column-edit="column.id"
-                    :class="isDarkMode ? 'bg-transparent text-slate-100' : 'bg-transparent text-slate-800'"
-                    class="text-lg font-semibold outline-none flex-1 min-w-0" @blur="saveTitle" @keyup.enter="saveTitle"
-                    @keyup.escape="emit('cancel-editing')" />
-                <h2 v-else
-                    :class="isDarkMode ? 'text-slate-100 hover:text-blue-400' : 'text-slate-800 hover:text-blue-600'"
-                    class="text-lg font-semibold cursor-pointer transition-colors duration-200 truncate"
-                    @click="startEditingTitle">
-                    {{ column.title }}
-                </h2>
+                <!-- Inline title editing with width matching -->
+                <span class="relative inline-block">
+                    <!-- Hidden span to measure text width -->
+                    <span class="text-lg font-semibold invisible whitespace-pre">{{ editingTitle ? editingColumnTitle :
+                        column.title }}</span>
+                    <input v-if="editingTitle" v-model="editingColumnTitle" :data-column-edit="column.id"
+                        :class="isDarkMode ? 'bg-transparent text-slate-100' : 'bg-transparent text-slate-800'"
+                        class="text-lg font-semibold outline-none absolute inset-0 w-full" @blur="saveTitle"
+                        @keyup.enter="saveTitle" @keyup.escape="emit('cancel-editing')" />
+                    <span v-else
+                        :class="isDarkMode ? 'text-slate-100 hover:text-blue-400' : 'text-slate-800 hover:text-blue-600'"
+                        class="text-lg font-semibold cursor-pointer transition-colors duration-200 absolute inset-0"
+                        @click="startEditingTitle">
+                        {{ column.title }}
+                    </span>
+                </span>
 
-                <span :class="isDarkMode ? 'text-slate-400 bg-slate-700/60' : 'text-slate-500 bg-slate-100'"
+                <span :class="isDarkMode ? 'text-slate-400 bg-slate-700/60' : 'text-slate-600 bg-slate-200'"
                     class="text-xs font-medium rounded-full px-2.5 py-1 flex-shrink-0">
                     {{ column.cards.length }}
                 </span>
@@ -165,7 +170,7 @@ function saveTitle() {
         <div class="flex-1 space-y-3 min-h-[80px]">
             <!-- Empty State with dotted border (only when no cards AND not adding) -->
             <div v-if="column.cards.length === 0 && !isAddingCard"
-                :class="isDarkMode ? 'border-slate-600/50 text-slate-500' : 'border-slate-300 text-slate-400'"
+                :class="isDarkMode ? 'border-slate-600/50 text-slate-500' : 'border-slate-400 text-slate-500'"
                 class="border-2 border-dashed rounded-xl p-6 flex flex-col items-center justify-center gap-2 min-h-[80px]">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 opacity-50" viewBox="0 0 20 20"
                     fill="currentColor">
@@ -191,7 +196,7 @@ function saveTitle() {
 
         <!-- Add Card Button (always visible) -->
         <button @click="startAddingCard"
-            :class="isDarkMode ? 'bg-slate-700/50 text-slate-400 hover:text-slate-200 hover:bg-slate-700' : 'bg-slate-100 text-slate-500 hover:text-slate-700 hover:bg-slate-200'"
+            :class="isDarkMode ? 'bg-slate-700/50 text-slate-400 hover:text-slate-200 hover:bg-slate-700' : 'bg-slate-200 text-slate-600 hover:text-slate-800 hover:bg-slate-300'"
             class="mt-4 w-full p-2.5 rounded-xl text-sm font-medium flex items-center justify-center gap-2 transition-all duration-200">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
                 <path fill-rule="evenodd"

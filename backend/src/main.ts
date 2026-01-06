@@ -11,7 +11,7 @@ async function bootstrap() {
       'http://localhost:5173',
       'http://localhost:3000',
       'https://epitrello.pages.dev',
-      /\.pages\.dev$/,  // Cloudflare Pages
+      /\.pages\.dev$/, // Cloudflare Pages
       /\.vercel\.app$/, // Vercel
     ],
     credentials: true,
@@ -26,6 +26,8 @@ async function bootstrap() {
   );
 
   await app.listen(process.env.PORT ?? 3000);
-  console.log(`Application is running on: http://localhost:${process.env.PORT ?? 3000}`);
+  console.log(
+    `Application is running on: http://localhost:${process.env.PORT ?? 3000}`,
+  );
 }
 bootstrap();
