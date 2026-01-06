@@ -14,7 +14,7 @@ export interface Card {
 
 @Injectable()
 export class CardsService {
-  constructor(private supabaseService: SupabaseService) { }
+  constructor(private supabaseService: SupabaseService) {}
 
   async findAll(listId?: string): Promise<Card[]> {
     let query = this.supabaseService
@@ -31,7 +31,7 @@ export class CardsService {
     if (error) throw error;
 
     // Fetch label_ids for all cards
-    const cardIds = cards.map(c => c.id);
+    const cardIds = cards.map((c) => c.id);
     const { data: cardLabels } = await this.supabaseService
       .getClient()
       .from('card_labels')
@@ -39,9 +39,12 @@ export class CardsService {
       .in('card_id', cardIds);
 
     // Map label_ids to each card
-    return cards.map(card => ({
+    return cards.map((card) => ({
       ...card,
-      label_ids: cardLabels?.filter(cl => cl.card_id === card.id).map(cl => cl.label_id) || []
+      label_ids:
+        cardLabels
+          ?.filter((cl) => cl.card_id === card.id)
+          .map((cl) => cl.label_id) || [],
     }));
   }
 
@@ -64,7 +67,7 @@ export class CardsService {
 
     return {
       ...data,
-      label_ids: cardLabels?.map(cl => cl.label_id) || []
+      label_ids: cardLabels?.map((cl) => cl.label_id) || [],
     };
   }
 
@@ -85,7 +88,9 @@ export class CardsService {
       await this.supabaseService
         .getClient()
         .from('card_labels')
-        .insert(label_ids.map(labelId => ({ card_id: data.id, label_id: labelId })));
+        .insert(
+          label_ids.map((labelId) => ({ card_id: data.id, label_id: labelId })),
+        );
     }
 
     return { ...data, label_ids: label_ids || [] };
@@ -119,7 +124,9 @@ export class CardsService {
         await this.supabaseService
           .getClient()
           .from('card_labels')
-          .insert(label_ids.map(labelId => ({ card_id: id, label_id: labelId })));
+          .insert(
+            label_ids.map((labelId) => ({ card_id: id, label_id: labelId })),
+          );
       }
     }
 
@@ -157,4 +164,3 @@ export class CardsService {
     if (error) throw error;
   }
 }
-

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import Button from '@/components/ui/button.vue'
 import CardDetailModal from '@/components/CardDetailModal.vue'
 import SettingsModal from '@/components/SettingsModal.vue'
@@ -44,6 +44,13 @@ const columnColors = ['#3b82f6', '#f97316', '#22c55e', '#ef4444', '#8b5cf6', '#e
 const isCardDetailOpen = ref(false)
 const selectedCard = ref<Card | null>(null)
 const selectedCardColumnId = ref<string | null>(null)
+
+// Computed column title for modal
+const selectedCardColumnTitle = computed(() => {
+  if (!selectedCardColumnId.value) return ''
+  const column = columns.value.find((c) => c.id === selectedCardColumnId.value)
+  return column?.title || ''
+})
 
 // Drag and drop with callbacks
 const {
@@ -198,47 +205,52 @@ onUnmounted(() => {
 <template>
   <div @click="columnMenuOpen = null"
     :class="isDarkMode ? 'bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800' : 'bg-gradient-to-br from-slate-50 via-white to-slate-100'"
-    class="min-h-screen p-8 flex flex-col transition-all duration-500">
-    <div class="max-w-7xl mx-auto w-full flex-1 flex flex-col">
-      <!-- Header -->
-      <KanbanHeader :isDarkMode="isDarkMode" :user="user" @toggle-dark-mode="toggleDarkMode"
-        @open-settings="isSettingsOpen = true" />
+    class="min-h-screen flex flex-col transition-all duration-500">
 
-      <!-- Loading State -->
-      <div v-if="isLoading" class="flex items-center justify-center h-64">
-        <div class="flex flex-col items-center gap-4">
-          <div class="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-          <span :class="isDarkMode ? 'text-slate-400' : 'text-slate-500'" class="text-sm font-medium">Loading your
-            board...</span>
+    <!-- Header (Full Width Banner) -->
+    <KanbanHeader :isDarkMode="isDarkMode" :user="user" @toggle-dark-mode="toggleDarkMode"
+      @open-settings="isSettingsOpen = true" />
+
+    <div class="p-8 flex-1 flex flex-col overflow-hidden">
+      <div class="max-w-7xl mx-auto w-full flex-1 flex flex-col">
+
+        <!-- Loading State -->
+        <div v-if="isLoading" class="flex items-center justify-center h-64">
+          <div class="flex flex-col items-center gap-4">
+            <div class="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+            <span :class="isDarkMode ? 'text-slate-400' : 'text-slate-500'" class="text-sm font-medium">Loading your
+              board...</span>
+          </div>
         </div>
-      </div>
 
-      <!-- Error State -->
-      <div v-else-if="error"
-        class="bg-red-50 border border-red-200 text-red-700 px-6 py-4 rounded-2xl mb-4 flex items-center gap-4 animate-scale-in">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-          <path fill-rule="evenodd"
-            d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
-            clip-rule="evenodd" />
-        </svg>
-        <span class="flex-1">{{ error }}</span>
-        <Button size="sm" variant="outline" @click="fetchData">Retry</Button>
-      </div>
+        <!-- Error State -->
+        <div v-else-if="error"
+          class="bg-red-50 border border-red-200 text-red-700 px-6 py-4 rounded-2xl mb-4 flex items-center gap-4 animate-scale-in">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd"
+              d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
+              clip-rule="evenodd" />
+          </svg>
+          <span class="flex-1">{{ error }}</span>
+          <Button size="sm" variant="outline" @click="fetchData">Retry</Button>
+        </div>
 
-      <!-- Kanban Board -->
-      <div v-else class="flex gap-6 flex-1 overflow-x-auto pb-4">
-        <KanbanColumn v-for="column in columns" :key="column.id" :column="column" :isDarkMode="isDarkMode"
-          :labels="labels" :menuOpen="columnMenuOpen === column.id" :colorPickerOpen="colorPickerColumnId === column.id"
-          :editingTitle="editingColumnId === column.id" :columnColors="columnColors"
-          @toggle-menu="handleToggleColumnMenu(column.id)" @toggle-color-picker="handleToggleColorPicker(column.id)"
-          @update-color="(color) => handleUpdateColumnColor(column.id, color)" @delete="handleDeleteColumn(column.id)"
-          @start-editing-title="handleStartEditingColumn(column.id)"
-          @save-title="(title) => handleSaveColumnTitle(column.id, title)" @cancel-editing="handleCancelEditingColumn"
-          @add-card="(title) => handleAddCard(column.id, title)"
-          @card-mousedown="(event, card) => handleCardMouseDown(event, card, column.id)" />
+        <!-- Kanban Board -->
+        <div v-else class="flex gap-6 flex-1 overflow-x-auto pb-4">
+          <KanbanColumn v-for="column in columns" :key="column.id" :column="column" :isDarkMode="isDarkMode"
+            :labels="labels" :menuOpen="columnMenuOpen === column.id"
+            :colorPickerOpen="colorPickerColumnId === column.id" :editingTitle="editingColumnId === column.id"
+            :columnColors="columnColors" @toggle-menu="handleToggleColumnMenu(column.id)"
+            @toggle-color-picker="handleToggleColorPicker(column.id)"
+            @update-color="(color) => handleUpdateColumnColor(column.id, color)" @delete="handleDeleteColumn(column.id)"
+            @start-editing-title="handleStartEditingColumn(column.id)"
+            @save-title="(title) => handleSaveColumnTitle(column.id, title)" @cancel-editing="handleCancelEditingColumn"
+            @add-card="(title) => handleAddCard(column.id, title)"
+            @card-mousedown="(event, card) => handleCardMouseDown(event, card, column.id)" />
 
-        <!-- Add Column Button -->
-        <AddColumnButton :isDarkMode="isDarkMode" @add-column="handleAddColumn" />
+          <!-- Add Column Button -->
+          <AddColumnButton :isDarkMode="isDarkMode" @add-column="handleAddColumn" />
+        </div>
       </div>
     </div>
 
@@ -247,9 +259,9 @@ onUnmounted(() => {
       :isDarkMode="isDarkMode" :labels="labels" />
 
     <!-- Card Detail Modal -->
-    <CardDetailModal :isOpen="isCardDetailOpen" :card="selectedCard" :columnTitle="''" :labels="labels"
-      :isDarkMode="isDarkMode" :boardId="currentBoardId" @close="closeCardDetail" @save="handleCardSave"
-      @delete="deleteCardFromDetail" @labelCreated="fetchLabels" @refresh="fetchLabels" />
+    <CardDetailModal :isOpen="isCardDetailOpen" :card="selectedCard" :columnTitle="selectedCardColumnTitle"
+      :labels="labels" :isDarkMode="isDarkMode" :boardId="currentBoardId" @close="closeCardDetail"
+      @save="handleCardSave" @delete="deleteCardFromDetail" @labelCreated="fetchLabels" @refresh="fetchLabels" />
 
     <!-- Settings Modal -->
     <SettingsModal :isOpen="isSettingsOpen" :isDarkMode="isDarkMode" @close="isSettingsOpen = false" />

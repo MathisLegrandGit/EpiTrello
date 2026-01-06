@@ -12,7 +12,7 @@ export interface Board {
 
 @Injectable()
 export class BoardsService {
-  constructor(private supabaseService: SupabaseService) { }
+  constructor(private supabaseService: SupabaseService) {}
 
   async findAll(userId?: string): Promise<Board[]> {
     let query = this.supabaseService

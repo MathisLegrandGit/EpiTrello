@@ -171,4 +171,19 @@ export const authApi = {
         method: 'PATCH',
         body: JSON.stringify(data),
     }),
+    uploadAvatar: async (userId: string, file: File): Promise<string> => {
+        const formData = new FormData();
+        formData.append('avatar', file);
+        const response = await fetch(`${API_BASE_URL}/auth/avatar/${userId}`, {
+            method: 'POST',
+            body: formData,
+        });
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.message || 'Failed to upload avatar');
+        }
+        const data = await response.json();
+        return data.avatarUrl;
+    },
 };
+
