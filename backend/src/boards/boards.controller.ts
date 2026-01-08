@@ -1,4 +1,13 @@
-import { Controller, Get, Post, Put, Delete, Body, Param } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Delete,
+  Body,
+  Param,
+  Query,
+} from '@nestjs/common';
 import { BoardsService } from './boards.service';
 import type { Board } from './boards.service';
 
@@ -7,8 +16,8 @@ export class BoardsController {
   constructor(private readonly boardsService: BoardsService) {}
 
   @Get()
-  findAll(): Promise<Board[]> {
-    return this.boardsService.findAll();
+  findAll(@Query('userId') userId?: string): Promise<Board[]> {
+    return this.boardsService.findAll(userId);
   }
 
   @Get(':id')
@@ -22,7 +31,10 @@ export class BoardsController {
   }
 
   @Put(':id')
-  update(@Param('id') id: string, @Body() board: Partial<Board>): Promise<Board> {
+  update(
+    @Param('id') id: string,
+    @Body() board: Partial<Board>,
+  ): Promise<Board> {
     return this.boardsService.update(id, board);
   }
 

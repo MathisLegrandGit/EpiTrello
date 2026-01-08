@@ -1,7 +1,20 @@
-import { Controller, Post, Body, HttpCode, HttpStatus } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  HttpCode,
+  HttpStatus,
+  Patch,
+  Param,
+  UseInterceptors,
+  UploadedFile,
+} from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { AuthService } from './auth.service';
 import { SignUpDto } from './dto/signup.dto';
 import { LoginDto } from './dto/login.dto';
+import { UpdateProfileDto } from './dto/update-profile.dto';
+import { UpdatePasswordDto } from './dto/update-password.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -22,5 +35,27 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   async logout() {
     return this.authService.logout('');
+  }
+
+  @Patch('profile/:id')
+  async updateProfile(
+    @Param('id') id: string,
+    @Body() updateProfileDto: UpdateProfileDto,
+  ) {
+    return this.authService.updateProfile(id, updateProfileDto);
+  }
+
+  @Patch('password/:id')
+  async updatePassword(
+    @Param('id') id: string,
+    @Body() updatePasswordDto: UpdatePasswordDto,
+  ) {
+    return this.authService.updatePassword(id, updatePasswordDto);
+  }
+
+  @Post('avatar/:id')
+  @UseInterceptors(FileInterceptor('avatar'))
+  async uploadAvatar(@Param('id') id: string, @UploadedFile() file: any) {
+    return this.authService.uploadAvatar(id, file);
   }
 }

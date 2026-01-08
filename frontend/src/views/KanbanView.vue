@@ -1,281 +1,319 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import Button from '@/components/ui/button.vue'
-import Card from '@/components/ui/card.vue'
-import Input from '@/components/ui/input.vue'
-import Dialog from '@/components/ui/dialog.vue'
-import DialogContent from '@/components/ui/dialogContent.vue'
-import DialogHeader from '@/components/ui/dialogHeader.vue'
-import DialogTitle from '@/components/ui/dialogTitle.vue'
-import DialogDescription from '@/components/ui/dialogDescription.vue'
-import DialogFooter from '@/components/ui/dialogFooter.vue'
+import CardDetailModal from '@/components/CardDetailModal.vue'
+import SettingsModal from '@/components/SettingsModal.vue'
+import KanbanHeader from '@/components/kanban/KanbanHeader.vue'
+import KanbanColumn from '@/components/kanban/KanbanColumn.vue'
+import AddColumnButton from '@/components/kanban/AddColumnButton.vue'
+import FloatingCard from '@/components/kanban/FloatingCard.vue'
+import { useBoard } from '@/composables/useBoard'
+import { useDragDrop } from '@/composables/useDragDrop'
+import { useAuth } from '@/composables/useAuth'
+import type { Card } from '@/services/api'
 
-interface Card {
-  id: number
-  title: string
-  description: string
-}
+// Board state from composable
+const {
+  columns,
+  labels,
+  currentBoardId,
+  isLoading,
+  error,
+  fetchData,
+  fetchLabels,
+  addColumn,
+  updateColumn,
+  deleteColumn,
+  addCard,
+  updateCard,
+  deleteCard,
+} = useBoard()
 
-interface Column {
-  id: number
-  name: string
-  cards: Card[]
-}
+// UI state
+const isDarkMode = ref(true)
+const isSettingsOpen = ref(false)
+const { user } = useAuth()
 
-const columns = ref<Column[]>([
-  {
-    id: 1,
-    name: 'To Do',
-    cards: [
-      { id: 1, title: 'Set up project repository', description: 'Initialize Git and configure basic structure' },
-      { id: 2, title: 'Design database schema', description: 'Create ERD and define relationships' },
-    ],
-  },
-  {
-    id: 2,
-    name: 'In Progress',
-    cards: [
-      { id: 3, title: 'Implement authentication', description: 'Add JWT-based user authentication' },
-    ],
-  },
-  {
-    id: 3,
-    name: 'Done',
-    cards: [
-      { id: 4, title: 'Setup Tailwind CSS', description: 'Configure Tailwind v4 with Vue' },
-    ],
-  },
-])
+// Column menu state
+const columnMenuOpen = ref<string | null>(null)
+const colorPickerColumnId = ref<string | null>(null)
+const editingColumnId = ref<string | null>(null)
+const columnColors = ['#3b82f6', '#f97316', '#22c55e', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#eab308']
 
-// Dialog state
-const isDialogOpen = ref(false)
-const dialogMode = ref<'add' | 'edit'>('add')
-const selectedColumnId = ref<number | null>(null)
-const selectedCardId = ref<number | null>(null)
+// Card detail modal state
+const isCardDetailOpen = ref(false)
+const selectedCard = ref<Card | null>(null)
+const selectedCardColumnId = ref<string | null>(null)
 
-// Form data
-const cardTitle = ref('')
-const cardDescription = ref('')
+// Computed column title for modal
+const selectedCardColumnTitle = computed(() => {
+  if (!selectedCardColumnId.value) return ''
+  const column = columns.value.find((c) => c.id === selectedCardColumnId.value)
+  return column?.title || ''
+})
 
-// Drag and drop state
-const draggedCard = ref<{ card: Card; columnId: number } | null>(null)
-
-function openAddDialog(columnId: number) {
-  dialogMode.value = 'add'
-  selectedColumnId.value = columnId
-  cardTitle.value = ''
-  cardDescription.value = ''
-  isDialogOpen.value = true
-}
-
-function openEditDialog(columnId: number, cardId: number) {
-  dialogMode.value = 'edit'
-  selectedColumnId.value = columnId
-  selectedCardId.value = cardId
-  
-  const column = columns.value.find((c) => c.id === columnId)
-  const card = column?.cards.find((c) => c.id === cardId)
-  
-  if (card) {
-    cardTitle.value = card.title
-    cardDescription.value = card.description
-  }
-  
-  isDialogOpen.value = true
-}
-
-function saveCard() {
-  if (!cardTitle.value.trim()) return
-
-  if (dialogMode.value === 'add' && selectedColumnId.value) {
-    const column = columns.value.find((c) => c.id === selectedColumnId.value)
-    if (column) {
-      column.cards.push({
-        id: Date.now(),
-        title: cardTitle.value,
-        description: cardDescription.value,
-      })
+// Drag and drop with callbacks
+const {
+  isDragging,
+  hasDragStarted,
+  draggedCard,
+  floatingCardStyle,
+  onCardMouseDown,
+  setupListeners,
+  cleanupListeners,
+} = useDragDrop({
+  onDragStart: (card, columnId) => {
+    // Remove card from source column visually
+    const sourceColumn = columns.value.find(c => c.id === columnId)
+    if (sourceColumn) {
+      sourceColumn.cards = sourceColumn.cards.filter(c => c.id !== card.id)
     }
-  } else if (dialogMode.value === 'edit' && selectedColumnId.value && selectedCardId.value) {
-    const column = columns.value.find((c) => c.id === selectedColumnId.value)
-    const card = column?.cards.find((c) => c.id === selectedCardId.value)
-    if (card) {
-      card.title = cardTitle.value
-      card.description = cardDescription.value
+  },
+  onDragEnd: async (card, sourceColumnId, targetColumnId) => {
+    const finalTargetId = targetColumnId || sourceColumnId
+    const targetColumn = columns.value.find(c => c.id === finalTargetId)
+    const maxPosition = targetColumn ? Math.max(0, ...targetColumn.cards.map(c => c.position)) : 0
+    const newPosition = maxPosition + 1
+
+    // Add card back to target column (we removed it in onDragStart)
+    if (targetColumn) {
+      targetColumn.cards.push({ ...card, list_id: finalTargetId, position: newPosition })
     }
+
+    // Sync with backend only if column changed
+    if (finalTargetId !== sourceColumnId) {
+      try {
+        await updateCard(card.id!, {
+          list_id: finalTargetId,
+          position: newPosition,
+        })
+      } catch (err) {
+        console.error('Error moving card:', err)
+        // Revert: refresh data
+        fetchData()
+      }
+    }
+  },
+  onCardClick: (card, columnId) => {
+    openCardDetail(card, columnId)
+  },
+})
+
+function toggleDarkMode() {
+  isDarkMode.value = !isDarkMode.value
+}
+
+// Card detail modal functions
+function openCardDetail(card: Card, columnId: string) {
+  selectedCard.value = card
+  selectedCardColumnId.value = columnId
+  isCardDetailOpen.value = true
+}
+
+async function handleCardSave(data: { title: string; description: string; labelIds: string[] }) {
+  if (!selectedCard.value || !selectedCardColumnId.value) return
+
+  try {
+    const updatedCard = await updateCard(selectedCard.value.id!, {
+      title: data.title,
+      description: data.description,
+      label_ids: data.labelIds,
+    })
+
+    // Update in columns
+    const column = columns.value.find((c) => c.id === selectedCardColumnId.value)
+    const cardIndex = column?.cards.findIndex((c) => c.id === selectedCard.value!.id)
+    if (column && cardIndex !== undefined && cardIndex >= 0) {
+      column.cards[cardIndex] = updatedCard
+    }
+
+    closeCardDetail()
+  } catch (err) {
+    console.error('Error saving card:', err)
   }
-
-  closeDialog()
 }
 
-function deleteCard(columnId: number, cardId: number) {
-  const column = columns.value.find((c) => c.id === columnId)
-  if (column) {
-    column.cards = column.cards.filter((c) => c.id !== cardId)
-  }
+async function deleteCardFromDetail() {
+  if (!selectedCard.value || !selectedCardColumnId.value) return
+  await deleteCard(selectedCard.value.id!, selectedCardColumnId.value)
+  closeCardDetail()
 }
 
-function closeDialog() {
-  isDialogOpen.value = false
-  cardTitle.value = ''
-  cardDescription.value = ''
-  selectedColumnId.value = null
-  selectedCardId.value = null
+function closeCardDetail() {
+  isCardDetailOpen.value = false
+  selectedCard.value = null
+  selectedCardColumnId.value = null
 }
 
-// Drag and drop functions
-function onDragStart(card: Card, columnId: number) {
-  draggedCard.value = { card, columnId }
+// Column handlers
+function handleToggleColumnMenu(columnId: string) {
+  columnMenuOpen.value = columnMenuOpen.value === columnId ? null : columnId
+  colorPickerColumnId.value = null
 }
 
-function onDragOver(event: DragEvent) {
-  event.preventDefault()
+function handleToggleColorPicker(columnId: string) {
+  colorPickerColumnId.value = colorPickerColumnId.value === columnId ? null : columnId
 }
 
-function onDrop(targetColumnId: number) {
-  if (!draggedCard.value) return
-
-  const { card, columnId: sourceColumnId } = draggedCard.value
-
-  // Remove from source column
-  const sourceColumn = columns.value.find((c) => c.id === sourceColumnId)
-  if (sourceColumn) {
-    sourceColumn.cards = sourceColumn.cards.filter((c) => c.id !== card.id)
-  }
-
-  // Add to target column
-  const targetColumn = columns.value.find((c) => c.id === targetColumnId)
-  if (targetColumn) {
-    targetColumn.cards.push(card)
-  }
-
-  draggedCard.value = null
+async function handleUpdateColumnColor(columnId: string, color: string) {
+  await updateColumn(columnId, { color })
+  colorPickerColumnId.value = null
+  columnMenuOpen.value = null
 }
+
+async function handleDeleteColumn(columnId: string) {
+  columnMenuOpen.value = null
+  await deleteColumn(columnId)
+}
+
+function handleStartEditingColumn(columnId: string) {
+  editingColumnId.value = columnId
+  columnMenuOpen.value = null
+}
+
+async function handleSaveColumnTitle(columnId: string, title: string) {
+  await updateColumn(columnId, { title })
+  editingColumnId.value = null
+}
+
+function handleCancelEditingColumn() {
+  editingColumnId.value = null
+}
+
+async function handleAddCard(columnId: string, title: string) {
+  await addCard(columnId, title)
+}
+
+async function handleAddColumn(title: string) {
+  await addColumn(title)
+}
+
+function handleCardMouseDown(event: MouseEvent, card: Card, columnId: string) {
+  onCardMouseDown(event, card, columnId)
+}
+
+onMounted(() => {
+  fetchData()
+  setupListeners()
+})
+
+onUnmounted(() => {
+  cleanupListeners()
+})
 </script>
 
 <template>
-  <div class="min-h-screen bg-linear-to-br from-slate-50 to-slate-100 p-8">
-    <div class="max-w-7xl mx-auto">
-      <div class="mb-8">
-        <h1 class="text-4xl font-bold text-slate-900 mb-2">EpiTrello</h1>
-        <p class="text-slate-600">Organize your tasks with a beautiful Kanban board</p>
-      </div>
+  <div @click="columnMenuOpen = null"
+    :class="isDarkMode ? 'bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800' : 'bg-gradient-to-br from-slate-50 via-white to-slate-100'"
+    class="min-h-screen flex flex-col transition-all duration-500">
 
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div
-          v-for="column in columns"
-          :key="column.id"
-          class="flex flex-col"
-          @dragover="onDragOver"
-          @drop="onDrop(column.id)"
-        >
-          <!-- Column Header -->
-          <div class="mb-4 flex items-center justify-between">
-            <div class="flex items-center gap-3">
-              <div
-                class="w-3 h-3 rounded-full"
-                :class="{
-                  'bg-blue-500': column.name === 'To Do',
-                  'bg-yellow-500': column.name === 'In Progress',
-                  'bg-green-500': column.name === 'Done',
-                }"
-              />
-              <h2 class="text-xl font-semibold text-slate-800">
-                {{ column.name }}
-              </h2>
-              <span class="text-sm text-slate-500 bg-slate-200 rounded-full px-2 py-0.5">
-                {{ column.cards.length }}
-              </span>
-            </div>
-            <Button size="sm" variant="ghost" @click="openAddDialog(column.id)">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                class="h-5 w-5"
-                viewBox="0 0 20 20"
-                fill="currentColor"
-              >
-                <path
-                  fill-rule="evenodd"
-                  d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z"
-                  clip-rule="evenodd"
-                />
-              </svg>
-            </Button>
+    <!-- Header (Full Width Banner) -->
+    <KanbanHeader :isDarkMode="isDarkMode" :user="user" @toggle-dark-mode="toggleDarkMode"
+      @open-settings="isSettingsOpen = true" />
+
+    <div class="p-8 flex-1 flex flex-col overflow-hidden">
+      <div class="max-w-7xl mx-auto w-full flex-1 flex flex-col">
+
+        <!-- Loading State -->
+        <div v-if="isLoading" class="flex items-center justify-center h-64">
+          <div class="flex flex-col items-center gap-4">
+            <div class="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+            <span :class="isDarkMode ? 'text-slate-400' : 'text-slate-500'" class="text-sm font-medium">Loading your
+              board...</span>
           </div>
+        </div>
 
-          <!-- Cards Container -->
-          <div class="flex-1 space-y-3 min-h-[200px]">
-            <Card
-              v-for="card in column.cards"
-              :key="card.id"
-              class="p-4 cursor-move hover:shadow-lg transition-shadow"
-              draggable="true"
-              @dragstart="onDragStart(card, column.id)"
-            >
-              <div class="space-y-2">
-                <h3 class="font-medium text-slate-900">{{ card.title }}</h3>
-                <p class="text-sm text-slate-600">{{ card.description }}</p>
-                <div class="flex gap-2 pt-2">
-                  <Button size="sm" variant="outline" @click="openEditDialog(column.id, card.id)">
-                    Edit
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="destructive"
-                    @click="deleteCard(column.id, card.id)"
-                  >
-                    Delete
-                  </Button>
-                </div>
-              </div>
-            </Card>
+        <!-- Error State -->
+        <div v-else-if="error"
+          class="bg-red-50 border border-red-200 text-red-700 px-6 py-4 rounded-2xl mb-4 flex items-center gap-4 animate-scale-in">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd"
+              d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
+              clip-rule="evenodd" />
+          </svg>
+          <span class="flex-1">{{ error }}</span>
+          <Button size="sm" variant="outline" @click="fetchData">Retry</Button>
+        </div>
 
-            <!-- Empty state -->
-            <div
-              v-if="column.cards.length === 0"
-              class="flex items-center justify-center h-32 border-2 border-dashed border-slate-300 rounded-lg text-slate-400"
-            >
-              <p class="text-sm">Drop cards here</p>
-            </div>
-          </div>
+        <!-- Kanban Board -->
+        <div v-else class="flex gap-6 flex-1 overflow-x-auto pb-4">
+          <KanbanColumn v-for="column in columns" :key="column.id" :column="column" :isDarkMode="isDarkMode"
+            :labels="labels" :menuOpen="columnMenuOpen === column.id"
+            :colorPickerOpen="colorPickerColumnId === column.id" :editingTitle="editingColumnId === column.id"
+            :columnColors="columnColors" @toggle-menu="handleToggleColumnMenu(column.id)"
+            @toggle-color-picker="handleToggleColorPicker(column.id)"
+            @update-color="(color) => handleUpdateColumnColor(column.id, color)" @delete="handleDeleteColumn(column.id)"
+            @start-editing-title="handleStartEditingColumn(column.id)"
+            @save-title="(title) => handleSaveColumnTitle(column.id, title)" @cancel-editing="handleCancelEditingColumn"
+            @add-card="(title) => handleAddCard(column.id, title)"
+            @card-mousedown="(event, card) => handleCardMouseDown(event, card, column.id)" />
+
+          <!-- Add Column Button -->
+          <AddColumnButton :isDarkMode="isDarkMode" @add-column="handleAddColumn" />
         </div>
       </div>
     </div>
 
-    <!-- Add/Edit Card Dialog -->
-    <Dialog :open="isDialogOpen" @update:open="isDialogOpen = $event">
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{{ dialogMode === 'add' ? 'Add New Card' : 'Edit Card' }}</DialogTitle>
-          <DialogDescription>
-            {{ dialogMode === 'add' ? 'Create a new task card' : 'Update your task card' }}
-          </DialogDescription>
-        </DialogHeader>
+    <!-- Floating Card during drag -->
+    <FloatingCard v-if="isDragging && hasDragStarted && draggedCard" :card="draggedCard" :style="floatingCardStyle"
+      :isDarkMode="isDarkMode" :labels="labels" />
 
-        <div class="space-y-4 py-4">
-          <div class="space-y-2">
-            <label class="text-sm font-medium text-slate-900">Title</label>
-            <Input
-              v-model="cardTitle"
-              placeholder="Enter card title"
-              @keyup.enter="saveCard"
-            />
-          </div>
-          <div class="space-y-2">
-            <label class="text-sm font-medium text-slate-900">Description</label>
-            <Input
-              v-model="cardDescription"
-              placeholder="Enter card description"
-              @keyup.enter="saveCard"
-            />
-          </div>
-        </div>
+    <!-- Card Detail Modal -->
+    <CardDetailModal :isOpen="isCardDetailOpen" :card="selectedCard" :columnTitle="selectedCardColumnTitle"
+      :labels="labels" :isDarkMode="isDarkMode" :boardId="currentBoardId" @close="closeCardDetail"
+      @save="handleCardSave" @delete="deleteCardFromDetail" @labelCreated="fetchLabels" @refresh="fetchLabels" />
 
-        <DialogFooter>
-          <Button variant="outline" @click="closeDialog">Cancel</Button>
-          <Button @click="saveCard">{{ dialogMode === 'add' ? 'Add Card' : 'Save Changes' }}</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    <!-- Settings Modal -->
+    <SettingsModal :isOpen="isSettingsOpen" :isDarkMode="isDarkMode" @close="isSettingsOpen = false" />
   </div>
 </template>
+
+<style>
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.5s ease-out;
+}
+
+.animate-slide-up {
+  animation: slide-up 0.4s ease-out;
+}
+
+.animate-scale-in {
+  animation: scale-in 0.2s ease-out;
+}
+</style>
