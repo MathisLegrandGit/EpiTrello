@@ -149,9 +149,10 @@ function isRequestPending(id: string): boolean {
 function getInitials(profile: UserProfile | undefined): string {
     if (!profile) return '?'
     if (profile.full_name) {
-        return profile.full_name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
+        return profile.full_name.split(' ').map(n => n.charAt(0)).join('').toUpperCase().slice(0, 2)
     }
-    return (profile.username || '?')[0].toUpperCase()
+    const username = profile.username || '?'
+    return username.charAt(0).toUpperCase() || '?'
 }
 
 function getDisplayName(profile: UserProfile | undefined): string {
