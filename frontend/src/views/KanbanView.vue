@@ -3,6 +3,8 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import Button from '@/components/ui/button.vue'
 import CardDetailModal from '@/components/CardDetailModal.vue'
 import SettingsModal from '@/components/SettingsModal.vue'
+import CollaboratorsModal from '@/components/CollaboratorsModal.vue'
+import NotificationsPanel from '@/components/NotificationsPanel.vue'
 import KanbanHeader from '@/components/kanban/KanbanHeader.vue'
 import KanbanColumn from '@/components/kanban/KanbanColumn.vue'
 import AddColumnButton from '@/components/kanban/AddColumnButton.vue'
@@ -10,6 +12,7 @@ import FloatingCard from '@/components/kanban/FloatingCard.vue'
 import { useBoard } from '@/composables/useBoard'
 import { useDragDrop } from '@/composables/useDragDrop'
 import { useAuth } from '@/composables/useAuth'
+import { notificationsApi } from '@/services/api'
 import type { Card } from '@/services/api'
 
 // Board state from composable
@@ -32,6 +35,9 @@ const {
 // UI state
 const isDarkMode = ref(true)
 const isSettingsOpen = ref(false)
+const isCollaboratorsOpen = ref(false)
+const isNotificationsOpen = ref(false)
+const notificationCount = ref(0)
 const { user } = useAuth()
 
 // Column menu state
@@ -192,13 +198,49 @@ function handleCardMouseDown(event: MouseEvent, card: Card, columnId: string) {
   onCardMouseDown(event, card, columnId)
 }
 
+function openCollaborators() {
+  isCollaboratorsOpen.value = true
+  isNotificationsOpen.value = false
+}
+
+function openNotifications() {
+  isNotificationsOpen.value = !isNotificationsOpen.value
+  isCollaboratorsOpen.value = false
+}
+
+async function loadNotificationCount() {
+  if (!user.value?.id) return
+  try {
+    const result = await notificationsApi.getUnreadCount(user.value.id)
+    notificationCount.value = result.count
+  } catch (err) {
+    console.error('Error loading notification count:', err)
+  }
+}
+
+function handleNotificationCountUpdate(count: number) {
+  notificationCount.value = count
+}
+
+// Polling interval for near real-time notifications
+let notificationPollingInterval: ReturnType<typeof setInterval> | null = null
+
 onMounted(() => {
   fetchData()
   setupListeners()
+  loadNotificationCount()
+
+  // Poll for new notifications every 10 seconds
+  notificationPollingInterval = setInterval(() => {
+    loadNotificationCount()
+  }, 10000)
 })
 
 onUnmounted(() => {
   cleanupListeners()
+  if (notificationPollingInterval) {
+    clearInterval(notificationPollingInterval)
+  }
 })
 </script>
 
@@ -208,8 +250,18 @@ onUnmounted(() => {
     class="min-h-screen flex flex-col transition-all duration-500">
 
     <!-- Header (Full Width Banner) -->
-    <KanbanHeader :isDarkMode="isDarkMode" :user="user" @toggle-dark-mode="toggleDarkMode"
-      @open-settings="isSettingsOpen = true" />
+    <div class="relative">
+      <KanbanHeader :isDarkMode="isDarkMode" :user="user" :notificationCount="notificationCount"
+        @toggle-dark-mode="toggleDarkMode" @open-settings="isSettingsOpen = true"
+        @open-collaborators="openCollaborators" @open-notifications="openNotifications" />
+
+      <!-- Notifications Panel (positioned relative to header) -->
+      <div class="absolute right-8 top-full z-50">
+        <NotificationsPanel :isOpen="isNotificationsOpen" :isDarkMode="isDarkMode" :user="user"
+          @close="isNotificationsOpen = false" @update-count="handleNotificationCountUpdate"
+          @open-collaborators="openCollaborators" />
+      </div>
+    </div>
 
     <div class="p-8 flex-1 flex flex-col overflow-hidden">
       <div class="max-w-7xl mx-auto w-full flex-1 flex flex-col">
@@ -265,6 +317,10 @@ onUnmounted(() => {
 
     <!-- Settings Modal -->
     <SettingsModal :isOpen="isSettingsOpen" :isDarkMode="isDarkMode" @close="isSettingsOpen = false" />
+
+    <!-- Collaborators Modal -->
+    <CollaboratorsModal :isOpen="isCollaboratorsOpen" :isDarkMode="isDarkMode" :user="user"
+      @close="isCollaboratorsOpen = false" @refresh-notifications="loadNotificationCount" />
   </div>
 </template>
 
