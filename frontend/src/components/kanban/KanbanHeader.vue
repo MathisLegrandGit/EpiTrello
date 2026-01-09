@@ -5,11 +5,14 @@ import BrandLogo from '@/components/BrandLogo.vue'
 defineProps<{
     isDarkMode: boolean
     user: User | null
+    notificationCount: number
 }>()
 
 const emit = defineEmits<{
     (e: 'toggle-dark-mode'): void
     (e: 'open-settings'): void
+    (e: 'open-collaborators'): void
+    (e: 'open-notifications'): void
 }>()
 </script>
 
@@ -24,7 +27,34 @@ const emit = defineEmits<{
         </div>
 
         <!-- Header Controls -->
-        <div class="flex items-center gap-4">
+        <div class="flex items-center gap-3">
+            <!-- Collaborators Button -->
+            <button @click="emit('open-collaborators')"
+                :class="isDarkMode ? 'bg-slate-800 text-slate-400 hover:text-cyan-400' : 'bg-slate-300 text-slate-500 hover:text-cyan-600'"
+                class="h-11 w-11 rounded-2xl flex items-center justify-center transition-all duration-300 active:scale-95 focus:outline-none"
+                title="Collaborators">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path
+                        d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z" />
+                </svg>
+            </button>
+
+            <!-- Notifications Button -->
+            <button @click="emit('open-notifications')"
+                :class="isDarkMode ? 'bg-slate-800 text-slate-400 hover:text-amber-400' : 'bg-slate-300 text-slate-500 hover:text-amber-600'"
+                class="relative h-11 w-11 rounded-2xl flex items-center justify-center transition-all duration-300 active:scale-95 focus:outline-none"
+                title="Notifications">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path
+                        d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zM10 18a3 3 0 01-3-3h6a3 3 0 01-3 3z" />
+                </svg>
+                <!-- Badge -->
+                <span v-if="notificationCount > 0"
+                    class="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-gradient-to-r from-cyan-500 to-blue-500 text-white text-[10px] font-bold flex items-center justify-center shadow-lg">
+                    {{ notificationCount > 9 ? '9+' : notificationCount }}
+                </span>
+            </button>
+
             <!-- Settings Button -->
             <button @click="emit('open-settings')"
                 :class="isDarkMode ? 'bg-slate-800 text-slate-400 hover:text-slate-200' : 'bg-slate-300 text-slate-500 hover:text-blue-500'"

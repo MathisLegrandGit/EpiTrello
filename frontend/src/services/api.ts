@@ -187,3 +187,91 @@ export const authApi = {
     },
 };
 
+// Friend profile type
+export interface UserProfile {
+    id: string;
+    username: string;
+    email: string;
+    full_name?: string;
+    avatar_url?: string;
+}
+
+export interface FriendRequest {
+    id: string;
+    from_user_id: string;
+    to_user_id: string;
+    status: 'pending' | 'accepted' | 'rejected';
+    created_at: string;
+    from_user?: UserProfile;
+    to_user?: UserProfile;
+}
+
+export interface Friendship {
+    id: string;
+    user_id: string;
+    friend_id: string;
+    created_at: string;
+    friend?: UserProfile;
+}
+
+export interface Notification {
+    id: string;
+    user_id: string;
+    type: 'friend_request' | 'friend_accepted' | 'friend_rejected';
+    data: {
+        request_id?: string;
+        from_user_id?: string;
+        friend_id?: string;
+        [key: string]: unknown;
+    };
+    read: boolean;
+    created_at: string;
+}
+
+// Friends API
+export const friendsApi = {
+    search: (query: string, excludeUserId?: string) =>
+        fetchApi<UserProfile[]>(`/friends/search?q=${encodeURIComponent(query)}${excludeUserId ? `&excludeUserId=${excludeUserId}` : ''}`),
+
+    getFriends: (userId: string) =>
+        fetchApi<Friendship[]>(`/friends/${userId}`),
+
+    sendRequest: (fromUserId: string, toUserId: string) =>
+        fetchApi<FriendRequest>('/friends/request', {
+            method: 'POST',
+            body: JSON.stringify({ fromUserId, toUserId }),
+        }),
+
+    getIncomingRequests: (userId: string) =>
+        fetchApi<FriendRequest[]>(`/friends/requests/${userId}/incoming`),
+
+    getOutgoingRequests: (userId: string) =>
+        fetchApi<FriendRequest[]>(`/friends/requests/${userId}/outgoing`),
+
+    respondToRequest: (requestId: string, status: 'accepted' | 'rejected') =>
+        fetchApi<FriendRequest>(`/friends/request/${requestId}`, {
+            method: 'PATCH',
+            body: JSON.stringify({ status }),
+        }),
+
+    removeFriend: (userId: string, friendId: string) =>
+        fetchApi<void>(`/friends/${userId}/${friendId}`, { method: 'DELETE' }),
+};
+
+// Notifications API
+export const notificationsApi = {
+    getAll: (userId: string) =>
+        fetchApi<Notification[]>(`/notifications/${userId}`),
+
+    getUnreadCount: (userId: string) =>
+        fetchApi<{ count: number }>(`/notifications/${userId}/unread-count`),
+
+    markAsRead: (notificationId: string) =>
+        fetchApi<Notification>(`/notifications/${notificationId}/read`, { method: 'PATCH' }),
+
+    markAllAsRead: (userId: string) =>
+        fetchApi<void>(`/notifications/${userId}/read-all`, { method: 'PATCH' }),
+
+    delete: (notificationId: string) =>
+        fetchApi<void>(`/notifications/${notificationId}`, { method: 'DELETE' }),
+};
