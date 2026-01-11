@@ -13,7 +13,7 @@ import type { Board } from './boards.service';
 
 @Controller('boards')
 export class BoardsController {
-  constructor(private readonly boardsService: BoardsService) {}
+  constructor(private readonly boardsService: BoardsService) { }
 
   @Get()
   findAll(@Query('userId') userId?: string): Promise<Board[]> {
@@ -41,5 +41,10 @@ export class BoardsController {
   @Delete(':id')
   remove(@Param('id') id: string): Promise<void> {
     return this.boardsService.remove(id);
+  }
+
+  @Post('default')
+  createDefaultBoard(@Body('userId') userId: string): Promise<Board> {
+    return this.boardsService.createDefaultBoard(userId);
   }
 }

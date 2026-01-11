@@ -9,6 +9,7 @@ interface Props {
     labels: Label[]
     isDarkMode: boolean
     boardId: string | null
+    canEdit?: boolean
 }
 
 const props = defineProps<Props>()
@@ -71,8 +72,8 @@ function handleDelete() {
 }
 
 function handleClose() {
-    // Auto-save if changes were made and title is not empty
-    if (hasChanges.value && title.value.trim()) {
+    // Auto-save if changes were made and title is not empty (only for editors)
+    if (props.canEdit && hasChanges.value && title.value.trim()) {
         emit('save', {
             title: title.value,
             description: description.value,
@@ -155,8 +156,8 @@ async function startDeletingLabel(labelId: string) {
                     </div>
 
                     <div class="flex items-center gap-2">
-                        <!-- Menu button -->
-                        <div class="relative" @click.stop>
+                        <!-- Menu button (only for editors) -->
+                        <div v-if="canEdit" class="relative" @click.stop>
                             <button @click="menuOpen = !menuOpen"
                                 :class="isDarkMode ? 'text-slate-400 hover:text-slate-200 hover:bg-slate-700' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100'"
                                 class="p-2 rounded-lg transition-colors">
@@ -215,10 +216,12 @@ async function startDeletingLabel(labelId: string) {
                             </svg>
                             Title
                         </label>
-                        <input v-model="title" :class="isDarkMode
-                            ? 'bg-slate-800 text-white border-slate-700 placeholder-slate-500'
-                            : 'bg-slate-50 text-slate-900 border-slate-200 placeholder-slate-400'"
-                            class="w-full px-4 py-3 text-xl font-semibold rounded-xl border transition-colors"
+                        <input v-model="title" :readonly="!canEdit" :class="[
+                            isDarkMode
+                                ? 'bg-slate-800 text-white border-slate-700 placeholder-slate-500'
+                                : 'bg-slate-50 text-slate-900 border-slate-200 placeholder-slate-400',
+                            !canEdit ? 'cursor-default' : ''
+                        ]" class="w-full px-4 py-3 text-xl font-semibold rounded-xl border transition-colors"
                             placeholder="Card title..." />
                     </div>
 
@@ -235,23 +238,16 @@ async function startDeletingLabel(labelId: string) {
                             Labels
                         </label>
                         <div class="flex flex-wrap items-center gap-2">
-                            <!-- Selected Labels -->
                             <template v-for="(labelId, idx) in selectedLabelIds" :key="idx">
-                                <button v-if="labels.find(l => l.id === labelId)" @click="toggleLabel(labelId)"
-                                    class="px-4 py-1.5 rounded-full text-sm font-medium text-white transition-all flex items-center gap-2"
+                                <span v-if="labels.find(l => l.id === labelId)"
+                                    class="px-4 py-1.5 rounded-full text-sm font-medium text-white"
                                     :style="{ backgroundColor: labels.find(l => l.id === labelId)?.color }">
                                     {{labels.find(l => l.id === labelId)?.name}}
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 20 20"
-                                        fill="currentColor">
-                                        <path fill-rule="evenodd"
-                                            d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
-                                            clip-rule="evenodd" />
-                                    </svg>
-                                </button>
+                                </span>
                             </template>
 
-                            <!-- Add Labels Button + Dropdown -->
-                            <div class="relative" @click.stop>
+                            <!-- Add Labels Button + Dropdown (only for editors) -->
+                            <div v-if="canEdit" class="relative" @click.stop>
                                 <button @click="labelDropdownOpen = !labelDropdownOpen; isCreatingLabel = false"
                                     :class="isDarkMode ? 'border-slate-600 text-slate-400 hover:border-slate-500' : 'border-slate-300 text-slate-500 hover:border-slate-400'"
                                     class="px-4 py-1.5 rounded-full text-sm font-medium border border-dashed transition-colors flex items-center gap-1">
@@ -397,10 +393,12 @@ async function startDeletingLabel(labelId: string) {
                             </svg>
                             Description
                         </label>
-                        <textarea v-model="description" :class="isDarkMode
-                            ? 'bg-slate-800 text-white border-slate-700 placeholder-slate-500'
-                            : 'bg-slate-50 text-slate-900 border-slate-200 placeholder-slate-400'"
-                            class="w-full px-4 py-3 rounded-xl border resize-none transition-colors" rows="4"
+                        <textarea v-model="description" :readonly="!canEdit" :class="[
+                            isDarkMode
+                                ? 'bg-slate-800 text-white border-slate-700 placeholder-slate-500'
+                                : 'bg-slate-50 text-slate-900 border-slate-200 placeholder-slate-400',
+                            !canEdit ? 'cursor-default' : ''
+                        ]" class="w-full px-4 py-3 rounded-xl border resize-none transition-colors" rows="4"
                             placeholder="Add a more detailed description..." />
                     </div>
                 </div>

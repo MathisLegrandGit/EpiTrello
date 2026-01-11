@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import Button from '@/components/ui/button.vue'
 import CardDetailModal from '@/components/CardDetailModal.vue'
 import SettingsModal from '@/components/SettingsModal.vue'
 import CollaboratorsModal from '@/components/CollaboratorsModal.vue'
+import BoardCollaboratorsModal from '@/components/BoardCollaboratorsModal.vue'
 import NotificationsPanel from '@/components/NotificationsPanel.vue'
 import KanbanHeader from '@/components/kanban/KanbanHeader.vue'
 import KanbanColumn from '@/components/kanban/KanbanColumn.vue'
@@ -12,8 +14,11 @@ import FloatingCard from '@/components/kanban/FloatingCard.vue'
 import { useBoard } from '@/composables/useBoard'
 import { useDragDrop } from '@/composables/useDragDrop'
 import { useAuth } from '@/composables/useAuth'
-import { notificationsApi } from '@/services/api'
+import { notificationsApi, boardsApi, collaboratorsApi, type Board, type SharedBoard } from '@/services/api'
 import type { Card } from '@/services/api'
+
+const route = useRoute()
+const router = useRouter()
 
 // Board state from composable
 const {
@@ -36,9 +41,17 @@ const {
 const isDarkMode = ref(true)
 const isSettingsOpen = ref(false)
 const isCollaboratorsOpen = ref(false)
+const isBoardCollaboratorsOpen = ref(false)
 const isNotificationsOpen = ref(false)
 const notificationCount = ref(0)
 const { user } = useAuth()
+
+// Board info
+const currentBoard = ref<Board | null>(null)
+const boardId = computed(() => route.params.id as string)
+const isOwner = computed(() => currentBoard.value?.user_id === user.value?.id)
+const userRole = ref<string>('viewer')
+const canEdit = computed(() => isOwner.value || userRole.value === 'editor')
 
 // Column menu state
 const columnMenuOpen = ref<string | null>(null)
@@ -225,15 +238,48 @@ function handleNotificationCountUpdate(count: number) {
 // Polling interval for near real-time notifications
 let notificationPollingInterval: ReturnType<typeof setInterval> | null = null
 
-onMounted(() => {
-  fetchData()
+async function loadBoardInfo() {
+  if (!boardId.value) return
+  try {
+    currentBoard.value = await boardsApi.getOne(boardId.value)
+
+    // Determine user's role
+    if (currentBoard.value?.user_id === user.value?.id) {
+      userRole.value = 'owner'
+    } else if (user.value?.id) {
+      // Check if user is a collaborator
+      const sharedBoards = await collaboratorsApi.getSharedBoards(user.value.id)
+      const thisBoard = sharedBoards.find((b: SharedBoard) => b.id === boardId.value)
+      userRole.value = thisBoard?.role || 'viewer'
+    }
+  } catch (err) {
+    console.error('Error loading board:', err)
+    router.push('/dashboard')
+  }
+}
+
+function goToDashboard() {
+  router.push('/dashboard')
+}
+
+onMounted(async () => {
+  await loadBoardInfo()
+  fetchData(boardId.value)
   setupListeners()
   loadNotificationCount()
 
-  // Poll for new notifications every 10 seconds
+  // Poll for new notifications every 3 seconds
   notificationPollingInterval = setInterval(() => {
     loadNotificationCount()
-  }, 10000)
+  }, 3000)
+})
+
+// Watch for route changes (switching boards)
+watch(() => route.params.id, async (newId) => {
+  if (newId && typeof newId === 'string') {
+    await loadBoardInfo()
+    fetchData(newId)
+  }
 })
 
 onUnmounted(() => {
@@ -252,8 +298,10 @@ onUnmounted(() => {
     <!-- Header (Full Width Banner) -->
     <div class="relative">
       <KanbanHeader :isDarkMode="isDarkMode" :user="user" :notificationCount="notificationCount"
-        @toggle-dark-mode="toggleDarkMode" @open-settings="isSettingsOpen = true"
-        @open-collaborators="openCollaborators" @open-notifications="openNotifications" />
+        :boardTitle="currentBoard?.title" :showBackButton="true" @toggle-dark-mode="toggleDarkMode"
+        @open-settings="isSettingsOpen = true" @open-collaborators="openCollaborators"
+        @open-board-collaborators="isBoardCollaboratorsOpen = true" @open-notifications="openNotifications"
+        @go-to-dashboard="goToDashboard" />
 
       <!-- Notifications Panel (positioned relative to header) -->
       <div class="absolute right-8 top-full z-50">
@@ -292,7 +340,7 @@ onUnmounted(() => {
           <KanbanColumn v-for="column in columns" :key="column.id" :column="column" :isDarkMode="isDarkMode"
             :labels="labels" :menuOpen="columnMenuOpen === column.id"
             :colorPickerOpen="colorPickerColumnId === column.id" :editingTitle="editingColumnId === column.id"
-            :columnColors="columnColors" @toggle-menu="handleToggleColumnMenu(column.id)"
+            :columnColors="columnColors" :canEdit="canEdit" @toggle-menu="handleToggleColumnMenu(column.id)"
             @toggle-color-picker="handleToggleColorPicker(column.id)"
             @update-color="(color) => handleUpdateColumnColor(column.id, color)" @delete="handleDeleteColumn(column.id)"
             @start-editing-title="handleStartEditingColumn(column.id)"
@@ -300,8 +348,8 @@ onUnmounted(() => {
             @add-card="(title) => handleAddCard(column.id, title)"
             @card-mousedown="(event, card) => handleCardMouseDown(event, card, column.id)" />
 
-          <!-- Add Column Button -->
-          <AddColumnButton :isDarkMode="isDarkMode" @add-column="handleAddColumn" />
+          <!-- Add Column Button (only for editors/owners) -->
+          <AddColumnButton v-if="canEdit" :isDarkMode="isDarkMode" @add-column="handleAddColumn" />
         </div>
       </div>
     </div>
@@ -312,15 +360,20 @@ onUnmounted(() => {
 
     <!-- Card Detail Modal -->
     <CardDetailModal :isOpen="isCardDetailOpen" :card="selectedCard" :columnTitle="selectedCardColumnTitle"
-      :labels="labels" :isDarkMode="isDarkMode" :boardId="currentBoardId" @close="closeCardDetail"
+      :labels="labels" :isDarkMode="isDarkMode" :boardId="currentBoardId" :canEdit="canEdit" @close="closeCardDetail"
       @save="handleCardSave" @delete="deleteCardFromDetail" @labelCreated="fetchLabels" @refresh="fetchLabels" />
 
     <!-- Settings Modal -->
-    <SettingsModal :isOpen="isSettingsOpen" :isDarkMode="isDarkMode" @close="isSettingsOpen = false" />
+    <SettingsModal :isOpen="isSettingsOpen" :isDarkMode="isDarkMode" @close="isSettingsOpen = false"
+      @toggle-dark-mode="toggleDarkMode" />
 
     <!-- Collaborators Modal -->
     <CollaboratorsModal :isOpen="isCollaboratorsOpen" :isDarkMode="isDarkMode" :user="user"
       @close="isCollaboratorsOpen = false" @refresh-notifications="loadNotificationCount" />
+
+    <!-- Board Collaborators Modal -->
+    <BoardCollaboratorsModal :isOpen="isBoardCollaboratorsOpen" :isDarkMode="isDarkMode" :boardId="boardId"
+      :userId="user?.id || ''" :isOwner="isOwner" @close="isBoardCollaboratorsOpen = false" />
   </div>
 </template>
 

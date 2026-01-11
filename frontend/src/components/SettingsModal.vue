@@ -153,6 +153,22 @@
                         </form>
                     </div>
 
+                    <!-- Theme Toggle -->
+                    <button @click="emit('toggle-dark-mode')" class="settings-item">
+                        <div class="settings-icon bg-violet-500/20 text-violet-400">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20"
+                                fill="currentColor">
+                                <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z" />
+                            </svg>
+                        </div>
+                        <span class="flex-1 text-left">{{ isDarkMode ? 'Light Mode' : 'Dark Mode' }}</span>
+                        <div class="w-10 h-5 rounded-full transition-colors relative"
+                            :class="isDarkMode ? 'bg-violet-500/30' : 'bg-slate-600'">
+                            <span class="absolute top-0.5 w-4 h-4 rounded-full transition-transform"
+                                :class="isDarkMode ? 'left-5 bg-violet-400' : 'left-0.5 bg-slate-400'"></span>
+                        </div>
+                    </button>
+
                     <!-- Sign Out -->
                     <button @click="handleLogout" class="settings-item hover:bg-red-500/10">
                         <div class="settings-icon bg-red-500/20 text-red-400">
@@ -181,7 +197,7 @@ defineProps<{
     isDarkMode: boolean
 }>()
 
-const emit = defineEmits(['close'])
+const emit = defineEmits(['close', 'toggle-dark-mode'])
 
 const { user, updateProfile, updatePassword, uploadAvatar, logout, loading, error: authError } = useAuth()
 

@@ -14,7 +14,7 @@
                 <input :value="modelValue" @input="onInput" :type="showPassword ? 'text' : 'password'"
                     class="input-field pr-10" :class="isValid ? '' : (modelValue ? 'border-red-500/30' : '')"
                     placeholder="Enter password" />
-                <button type="button" @click="showPassword = !showPassword"
+                <button type="button" tabindex="-1" @click="showPassword = !showPassword"
                     class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-blue-400 transition-colors">
                     <svg v-if="showPassword" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24"
                         fill="none" stroke="currentColor" stroke-width="2">
@@ -87,7 +87,7 @@
                 <input v-model="confirmPassword" :type="showConfirmPassword ? 'text' : 'password'"
                     class="input-field pr-10" :class="passwordsMatch ? '' : 'border-red-500/30'"
                     placeholder="Confirm password" />
-                <button type="button" @click="showConfirmPassword = !showConfirmPassword"
+                <button type="button" tabindex="-1" @click="showConfirmPassword = !showConfirmPassword"
                     class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-blue-400 transition-colors">
                     <svg v-if="showConfirmPassword" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4"
                         viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
