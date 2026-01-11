@@ -9,6 +9,7 @@ import { LabelsModule } from './labels/labels.module';
 import { SupabaseModule } from './supabase/supabase.module';
 import { AuthModule } from './auth/auth.module';
 import { FriendsModule } from './friends/friends.module';
+import { CollaboratorsModule } from './collaborators/collaborators.module';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { FriendsModule } from './friends/friends.module';
     SupabaseModule,
     AuthModule,
     FriendsModule,
+    CollaboratorsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

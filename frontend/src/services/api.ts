@@ -34,8 +34,12 @@ export interface List {
 export interface Board {
     id?: string;
     user_id?: string;
-    name: string;
+    title: string;
+    description?: string;
+    color?: string;
     created_at?: string;
+    updated_at?: string;
+    last_opened_at?: string;
 }
 
 // ... (skipping Label to keep context small, careful here)
@@ -217,7 +221,7 @@ export interface Friendship {
 export interface Notification {
     id: string;
     user_id: string;
-    type: 'friend_request' | 'friend_accepted' | 'friend_rejected';
+    type: 'friend_request' | 'friend_accepted' | 'friend_rejected' | 'board_invite' | 'board_removed';
     data: {
         request_id?: string;
         from_user_id?: string;
@@ -274,4 +278,60 @@ export const notificationsApi = {
 
     delete: (notificationId: string) =>
         fetchApi<void>(`/notifications/${notificationId}`, { method: 'DELETE' }),
+};
+
+// Board Collaborators types and API
+export interface BoardCollaborator {
+    id: string;
+    board_id: string;
+    user_id: string;
+    role: 'owner' | 'editor' | 'viewer';
+    status: 'pending' | 'accepted';
+    invited_by?: string;
+    created_at: string;
+    user?: UserProfile;
+}
+
+export interface SharedBoard {
+    id: string;
+    title: string;
+    description?: string;
+    color?: string;
+    created_at: string;
+    last_opened_at?: string;
+    owner?: UserProfile;
+    role: string;
+    status: 'pending' | 'accepted';
+}
+
+export const collaboratorsApi = {
+    getCollaborators: (boardId: string) =>
+        fetchApi<BoardCollaborator[]>(`/boards/${boardId}/collaborators`),
+
+    addCollaborator: (boardId: string, userId: string, invitedBy: string, role: string = 'editor') =>
+        fetchApi<BoardCollaborator>(`/boards/${boardId}/collaborators`, {
+            method: 'POST',
+            body: JSON.stringify({ userId, invitedBy, role }),
+        }),
+
+    removeCollaborator: (boardId: string, userId: string, requesterId: string) =>
+        fetchApi<void>(`/boards/${boardId}/collaborators/${userId}`, {
+            method: 'DELETE',
+            body: JSON.stringify({ requesterId }),
+        }),
+
+    getSharedBoards: (userId: string) =>
+        fetchApi<SharedBoard[]>(`/boards/shared/${userId}`),
+
+    respondToInvitation: (boardId: string, userId: string, accept: boolean) =>
+        fetchApi<void>(`/boards/${boardId}/collaborators/respond`, {
+            method: 'POST',
+            body: JSON.stringify({ userId, accept }),
+        }),
+
+    updateCollaboratorRole: (boardId: string, userId: string, role: string, requesterId: string) =>
+        fetchApi<void>(`/boards/${boardId}/collaborators/${userId}/role`, {
+            method: 'PATCH',
+            body: JSON.stringify({ role, requesterId }),
+        }),
 };

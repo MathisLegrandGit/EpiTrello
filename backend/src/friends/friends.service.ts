@@ -94,15 +94,25 @@ export class FriendsService {
             .in('id', friendIds);
 
         if (profileError) {
-            throw new Error(profileError.message);
+            console.error('Error fetching friend profiles:', profileError);
+            // Continue without profiles rather than failing
         }
 
-        // Map profiles to friendships
+        // Map profiles to friendships, with fallback for missing profiles
         const profileMap = new Map(profiles?.map(p => [p.id, p]) || []);
-        return data.map(friendship => ({
-            ...friendship,
-            friend: profileMap.get(friendship.friend_id),
-        }));
+        return data.map(friendship => {
+            const profile = profileMap.get(friendship.friend_id);
+            return {
+                ...friendship,
+                friend: profile || {
+                    id: friendship.friend_id,
+                    username: 'User',
+                    email: '',
+                    full_name: 'Loading...',
+                    avatar_url: null,
+                },
+            };
+        });
     }
 
     /**
@@ -190,7 +200,8 @@ export class FriendsService {
         }
 
         // Create notification for recipient
-        await supabase.from('notifications').insert({
+        const adminSupabase = this.supabaseService.getAdminClient();
+        await adminSupabase.from('notifications').insert({
             user_id: toUserId,
             type: 'friend_request',
             data: {
@@ -317,7 +328,8 @@ export class FriendsService {
             }
 
             // Create notification for requester
-            await supabase.from('notifications').insert({
+            const adminSupabase = this.supabaseService.getAdminClient();
+            await adminSupabase.from('notifications').insert({
                 user_id: request.from_user_id,
                 type: 'friend_rejected',
                 data: {

@@ -39,6 +39,8 @@ async function loadNotifications() {
         notifications.value.forEach(n => {
             if (n.data.from_user_id) userIds.add(n.data.from_user_id as string)
             if (n.data.friend_id) userIds.add(n.data.friend_id as string)
+            if (n.data.invited_by) userIds.add(n.data.invited_by as string)
+            if (n.data.removed_by) userIds.add(n.data.removed_by as string)
         })
 
         if (userIds.size > 0) {
@@ -109,6 +111,17 @@ function getNotificationMessage(notification: Notification): string {
             return `${name} accepted your friend request`
         case 'friend_rejected':
             return `${name} declined your friend request`
+        case 'board_invite':
+            // Try to get name from profile, otherwise from data
+            const inviterId = notification.data.invited_by as string
+            const inviterProfile = userProfiles.value.get(inviterId)
+            const inviterName = inviterProfile?.full_name || inviterProfile?.username || notification.data.inviter_name || 'Someone'
+            return `${inviterName} invited you to board "${notification.data.board_title}"`
+        case 'board_removed':
+            const removerId = notification.data.removed_by as string
+            const removerProfile = userProfiles.value.get(removerId)
+            const removerName = removerProfile?.full_name || removerProfile?.username || notification.data.remover_name || 'Someone'
+            return `${removerName} removed you from board "${notification.data.board_title}"`
         default:
             return 'New notification'
     }
@@ -178,12 +191,22 @@ function handleNotificationClick(notification: Notification) {
                         :style="{ borderColor: isDarkMode ? 'rgb(51 65 85 / 0.5)' : 'rgb(226 232 240)' }">
                         <div class="flex items-start gap-3">
                             <!-- Icon -->
-                            <div :class="notification.type === 'friend_request' ? 'bg-cyan-500/20 text-cyan-400' : 'bg-emerald-500/20 text-emerald-400'"
+                            <div :class="notification.type === 'friend_request' || notification.type === 'board_invite' ? 'bg-cyan-500/20 text-cyan-400' : (notification.type === 'board_removed' ? 'bg-red-500/20 text-red-400' : 'bg-emerald-500/20 text-emerald-400')"
                                 class="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0">
                                 <svg v-if="notification.type === 'friend_request'" xmlns="http://www.w3.org/2000/svg"
                                     class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
                                     <path
                                         d="M8 9a3 3 0 100-6 3 3 0 000 6zM8 11a6 6 0 016 6H2a6 6 0 016-6zM16 7a1 1 0 10-2 0v1h-1a1 1 0 100 2h1v1a1 1 0 102 0v-1h1a1 1 0 100-2h-1V7z" />
+                                </svg>
+                                <svg v-else-if="notification.type === 'board_invite'" class="h-4 w-4" fill="none"
+                                    stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                                </svg>
+                                <svg v-else-if="notification.type === 'board_removed'" class="h-4 w-4" fill="none"
+                                    stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M13 7a4 4 0 11-8 0 4 4 0 018 0zM9 14a6 6 0 00-6 6v1h12v-1a6 6 0 00-6-6zM21 12h-6" />
                                 </svg>
                                 <svg v-else xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20"
                                     fill="currentColor">

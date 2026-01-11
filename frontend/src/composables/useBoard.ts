@@ -20,53 +20,59 @@ const error = ref<string | null>(null)
 export function useBoard() {
     const { user } = useAuth()
 
-    // Fetch data from API
-    async function fetchData() {
+    // Fetch data from API - optionally pass a specific boardId
+    async function fetchData(boardId?: string) {
         try {
             isLoading.value = true
             error.value = null
 
             if (!user.value) return
 
-            // 1. Fetch User's Boards
-            const userBoards = await boardsApi.getAll(user.value.id)
-            let boardId: string
+            let targetBoardId: string
 
-            if (!userBoards || userBoards.length === 0) {
-                // Create default board if none exists
-                const newBoard = await boardsApi.create({
-                    name: 'My First Board',
-                    user_id: user.value.id
-                })
-                if (!newBoard || !newBoard.id) throw new Error('Failed to create default board')
-                boardId = newBoard.id
-
-                // Create default columns for new board
-                const defaultColumns = [
-                    { title: 'To Do', position: 1, color: '#3b82f6' },
-                    { title: 'In Progress', position: 2, color: '#f97316' },
-                    { title: 'Done', position: 3, color: '#22c55e' }
-                ]
-
-                await Promise.all(
-                    defaultColumns.map(col =>
-                        listsApi.create({ board_id: boardId, title: col.title, position: col.position, color: col.color })
-                    )
-                )
+            if (boardId) {
+                // Use the provided board ID
+                targetBoardId = boardId
             } else {
-                boardId = userBoards[0]!.id!
+                // Fallback: Fetch user's boards and use first one
+                const userBoards = await boardsApi.getAll(user.value.id)
+
+                if (!userBoards || userBoards.length === 0) {
+                    // Create default board if none exists
+                    const newBoard = await boardsApi.create({
+                        title: 'My First Board',
+                        user_id: user.value.id
+                    })
+                    if (!newBoard || !newBoard.id) throw new Error('Failed to create default board')
+                    targetBoardId = newBoard.id
+
+                    // Create default columns for new board
+                    const defaultColumns = [
+                        { title: 'To Do', position: 1, color: '#3b82f6' },
+                        { title: 'In Progress', position: 2, color: '#f97316' },
+                        { title: 'Done', position: 3, color: '#22c55e' }
+                    ]
+
+                    await Promise.all(
+                        defaultColumns.map(col =>
+                            listsApi.create({ board_id: targetBoardId, title: col.title, position: col.position, color: col.color })
+                        )
+                    )
+                } else {
+                    targetBoardId = userBoards[0]!.id!
+                }
             }
 
-            currentBoardId.value = boardId
+            currentBoardId.value = targetBoardId
 
             // 2. Fetch Lists and Cards
             const [lists, cards] = await Promise.all([
-                listsApi.getAll(boardId),
+                listsApi.getAll(targetBoardId),
                 cardsApi.getAll()
             ])
 
             // Load correct labels for this board
-            const boardLabels = await labelsApi.getAll(boardId)
+            const boardLabels = await labelsApi.getAll(targetBoardId)
             labels.value = boardLabels
 
             columns.value = lists
@@ -87,6 +93,7 @@ export function useBoard() {
             isLoading.value = false
         }
     }
+
 
     async function fetchLabels() {
         if (!currentBoardId.value) return

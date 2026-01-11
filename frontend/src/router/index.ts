@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import DashboardView from '../views/DashboardView.vue'
 import KanbanView from '../views/KanbanView.vue'
 import AuthView from '../views/AuthView.vue'
 import { useAuth } from '@/composables/useAuth'
@@ -8,7 +9,17 @@ const router = createRouter({
   routes: [
     {
       path: '/',
-      name: 'kanban',
+      redirect: '/dashboard'
+    },
+    {
+      path: '/dashboard',
+      name: 'dashboard',
+      component: DashboardView,
+      meta: { requiresAuth: true }
+    },
+    {
+      path: '/board/:id',
+      name: 'board',
       component: KanbanView,
       meta: { requiresAuth: true }
     },
@@ -32,7 +43,7 @@ router.beforeEach(async (to, from, next) => {
   if (requiresAuth && !isAuth) {
     next('/login')
   } else if (to.name === 'login' && isAuth) {
-    next('/')
+    next('/dashboard')
   } else {
     next()
   }
