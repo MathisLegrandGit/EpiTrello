@@ -1,4 +1,4 @@
-name: Backend Deploy to Production
+name: Backend Deploy
 
 on:
   workflow_dispatch:
@@ -11,14 +11,10 @@ on:
           - staging
           - production
 
-env:
-  NODE_VERSION: '22.x'
-
 jobs:
   deploy:
     name: Deploy Backend
     runs-on: ubuntu-latest
-    environment: ${{ github.event.inputs.environment }}
     
     steps:
       - name: Checkout code
@@ -41,28 +37,9 @@ jobs:
           push: true
           tags: |
             ${{ secrets.DOCKER_USERNAME }}/epitrello-backend:${{ github.event.inputs.environment }}
-            ${{ secrets.DOCKER_USERNAME }}/epitrello-backend:${{ github.event.inputs.environment }}-${{ github.sha }}
+            ${{ secrets.DOCKER_USERNAME }}/epitrello-backend:${{ github.sha }}
 
-      # Exemple de déploiement sur un VPS (optionnel - configurez les secrets SSH si besoin)
-      - name: Deploy to server via SSH
-        uses: appleboy/ssh-action@v1.0.0
-        continue-on-error: true
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          script: |
-            cd /path/to/app
-            docker pull ${{ secrets.DOCKER_USERNAME }}/epitrello-backend:${{ github.event.inputs.environment }}
-            docker-compose up -d --no-deps backend
-            docker image prune -f
-
-      - name: Notify deployment status
-        if: always()
-        uses: 8398a7/action-slack@v3
-        with:
-          status: ${{ job.status }}
-          text: 'Backend deployment to ${{ github.event.inputs.environment }}: ${{ job.status }}'
-          webhook_url: ${{ secrets.SLACK_WEBHOOK }}
-        env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
+      - name: Deployment complete
+        run: |
+          echo "✅ Image Docker créée et pushée avec succès !"
+          echo "Tag: ${{ secrets.DOCKER_USERNAME }}/epitrello-backend:${{ github.event.inputs.environment }}"
