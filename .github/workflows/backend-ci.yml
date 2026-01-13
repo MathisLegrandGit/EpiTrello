@@ -2,7 +2,7 @@ name: Backend CI/CD
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main, develop, ci-cd/setup]
     paths:
       - 'backend/**'
       - '.github/workflows/backend-ci.yml'
@@ -10,6 +10,7 @@ on:
     branches: [main, develop]
     paths:
       - 'backend/**'
+  workflow_dispatch:
 
 env:
   NODE_VERSION: '22.x'
