@@ -45,7 +45,7 @@ jobs:
 
       # Exemple de déploiement sur un VPS
       - name: Deploy to server via SSH
-        if: ${{ secrets.SSH_HOST }}
+        if: ${{ secrets.SSH_HOST != '' }}
         uses: appleboy/ssh-action@v1.0.0
         with:
           host: ${{ secrets.SSH_HOST }}
