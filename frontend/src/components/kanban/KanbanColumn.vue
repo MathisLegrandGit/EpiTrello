@@ -19,6 +19,7 @@ const props = defineProps<{
     colorPickerOpen: boolean
     editingTitle: boolean
     columnColors: string[]
+    canEdit?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -91,14 +92,14 @@ function saveTitle() {
                     <!-- Hidden span to measure text width -->
                     <span class="text-lg font-semibold invisible whitespace-pre">{{ editingTitle ? editingColumnTitle :
                         column.title }}</span>
-                    <input v-if="editingTitle" v-model="editingColumnTitle" :data-column-edit="column.id"
+                    <input v-if="editingTitle && canEdit" v-model="editingColumnTitle" :data-column-edit="column.id"
                         :class="isDarkMode ? 'bg-transparent text-slate-100' : 'bg-transparent text-slate-800'"
                         class="text-lg font-semibold outline-none absolute inset-0 w-full" @blur="saveTitle"
                         @keyup.enter="saveTitle" @keyup.escape="emit('cancel-editing')" />
                     <span v-else
-                        :class="isDarkMode ? 'text-slate-100 hover:text-blue-400' : 'text-slate-800 hover:text-blue-600'"
-                        class="text-lg font-semibold cursor-pointer transition-colors duration-200 absolute inset-0"
-                        @click="startEditingTitle">
+                        :class="[isDarkMode ? 'text-slate-100' : 'text-slate-800', canEdit ? 'cursor-pointer hover:text-blue-400' : '']"
+                        class="text-lg font-semibold transition-colors duration-200 absolute inset-0"
+                        @click="canEdit && startEditingTitle()">
                         {{ column.title }}
                     </span>
                 </span>
@@ -109,8 +110,8 @@ function saveTitle() {
                 </span>
             </div>
 
-            <!-- Column Menu -->
-            <div class="relative" @click.stop>
+            <!-- Column Menu (only for editors) -->
+            <div v-if="canEdit" class="relative" @click.stop>
                 <button @click="emit('toggle-menu')"
                     :class="isDarkMode ? 'text-slate-400 hover:text-slate-200 hover:bg-slate-700' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100'"
                     class="p-1.5 rounded-lg transition-colors">
@@ -194,8 +195,8 @@ function saveTitle() {
                 :labels="labels" :columnId="column.id" @mousedown="emit('card-mousedown', $event, card)" />
         </div>
 
-        <!-- Add Card Button (always visible) -->
-        <button @click="startAddingCard"
+        <!-- Add Card Button (only for editors) -->
+        <button v-if="canEdit" @click="startAddingCard"
             :class="isDarkMode ? 'bg-slate-700/50 text-slate-400 hover:text-slate-200 hover:bg-slate-700' : 'bg-slate-200 text-slate-600 hover:text-slate-800 hover:bg-slate-300'"
             class="mt-4 w-full p-2.5 rounded-xl text-sm font-medium flex items-center justify-center gap-2 transition-all duration-200">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">

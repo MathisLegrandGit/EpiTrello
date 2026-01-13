@@ -34,8 +34,12 @@ export interface List {
 export interface Board {
     id?: string;
     user_id?: string;
-    name: string;
+    title: string;
+    description?: string;
+    color?: string;
     created_at?: string;
+    updated_at?: string;
+    last_opened_at?: string;
 }
 
 // ... (skipping Label to keep context small, careful here)
@@ -187,3 +191,147 @@ export const authApi = {
     },
 };
 
+// Friend profile type
+export interface UserProfile {
+    id: string;
+    username: string;
+    email: string;
+    full_name?: string;
+    avatar_url?: string;
+}
+
+export interface FriendRequest {
+    id: string;
+    from_user_id: string;
+    to_user_id: string;
+    status: 'pending' | 'accepted' | 'rejected';
+    created_at: string;
+    from_user?: UserProfile;
+    to_user?: UserProfile;
+}
+
+export interface Friendship {
+    id: string;
+    user_id: string;
+    friend_id: string;
+    created_at: string;
+    friend?: UserProfile;
+}
+
+export interface Notification {
+    id: string;
+    user_id: string;
+    type: 'friend_request' | 'friend_accepted' | 'friend_rejected' | 'board_invite' | 'board_removed';
+    data: {
+        request_id?: string;
+        from_user_id?: string;
+        friend_id?: string;
+        [key: string]: unknown;
+    };
+    read: boolean;
+    created_at: string;
+}
+
+// Friends API
+export const friendsApi = {
+    search: (query: string, excludeUserId?: string) =>
+        fetchApi<UserProfile[]>(`/friends/search?q=${encodeURIComponent(query)}${excludeUserId ? `&excludeUserId=${excludeUserId}` : ''}`),
+
+    getFriends: (userId: string) =>
+        fetchApi<Friendship[]>(`/friends/${userId}`),
+
+    sendRequest: (fromUserId: string, toUserId: string) =>
+        fetchApi<FriendRequest>('/friends/request', {
+            method: 'POST',
+            body: JSON.stringify({ fromUserId, toUserId }),
+        }),
+
+    getIncomingRequests: (userId: string) =>
+        fetchApi<FriendRequest[]>(`/friends/requests/${userId}/incoming`),
+
+    getOutgoingRequests: (userId: string) =>
+        fetchApi<FriendRequest[]>(`/friends/requests/${userId}/outgoing`),
+
+    respondToRequest: (requestId: string, status: 'accepted' | 'rejected') =>
+        fetchApi<FriendRequest>(`/friends/request/${requestId}`, {
+            method: 'PATCH',
+            body: JSON.stringify({ status }),
+        }),
+
+    removeFriend: (userId: string, friendId: string) =>
+        fetchApi<void>(`/friends/${userId}/${friendId}`, { method: 'DELETE' }),
+};
+
+// Notifications API
+export const notificationsApi = {
+    getAll: (userId: string) =>
+        fetchApi<Notification[]>(`/notifications/${userId}`),
+
+    getUnreadCount: (userId: string) =>
+        fetchApi<{ count: number }>(`/notifications/${userId}/unread-count`),
+
+    markAsRead: (notificationId: string) =>
+        fetchApi<Notification>(`/notifications/${notificationId}/read`, { method: 'PATCH' }),
+
+    markAllAsRead: (userId: string) =>
+        fetchApi<void>(`/notifications/${userId}/read-all`, { method: 'PATCH' }),
+
+    delete: (notificationId: string) =>
+        fetchApi<void>(`/notifications/${notificationId}`, { method: 'DELETE' }),
+};
+
+// Board Collaborators types and API
+export interface BoardCollaborator {
+    id: string;
+    board_id: string;
+    user_id: string;
+    role: 'owner' | 'editor' | 'viewer';
+    status: 'pending' | 'accepted';
+    invited_by?: string;
+    created_at: string;
+    user?: UserProfile;
+}
+
+export interface SharedBoard {
+    id: string;
+    title: string;
+    description?: string;
+    color?: string;
+    created_at: string;
+    last_opened_at?: string;
+    owner?: UserProfile;
+    role: string;
+    status: 'pending' | 'accepted';
+}
+
+export const collaboratorsApi = {
+    getCollaborators: (boardId: string) =>
+        fetchApi<BoardCollaborator[]>(`/boards/${boardId}/collaborators`),
+
+    addCollaborator: (boardId: string, userId: string, invitedBy: string, role: string = 'editor') =>
+        fetchApi<BoardCollaborator>(`/boards/${boardId}/collaborators`, {
+            method: 'POST',
+            body: JSON.stringify({ userId, invitedBy, role }),
+        }),
+
+    removeCollaborator: (boardId: string, userId: string, requesterId: string) =>
+        fetchApi<void>(`/boards/${boardId}/collaborators/${userId}`, {
+            method: 'DELETE',
+            body: JSON.stringify({ requesterId }),
+        }),
+
+    getSharedBoards: (userId: string) =>
+        fetchApi<SharedBoard[]>(`/boards/shared/${userId}`),
+
+    respondToInvitation: (boardId: string, userId: string, accept: boolean) =>
+        fetchApi<void>(`/boards/${boardId}/collaborators/respond`, {
+            method: 'POST',
+            body: JSON.stringify({ userId, accept }),
+        }),
+
+    updateCollaboratorRole: (boardId: string, userId: string, role: string, requesterId: string) =>
+        fetchApi<void>(`/boards/${boardId}/collaborators/${userId}/role`, {
+            method: 'PATCH',
+            body: JSON.stringify({ role, requesterId }),
+        }),
+};

@@ -8,6 +8,8 @@ import { CardsModule } from './cards/cards.module';
 import { LabelsModule } from './labels/labels.module';
 import { SupabaseModule } from './supabase/supabase.module';
 import { AuthModule } from './auth/auth.module';
+import { FriendsModule } from './friends/friends.module';
+import { CollaboratorsModule } from './collaborators/collaborators.module';
 
 @Module({
   imports: [
@@ -21,8 +23,10 @@ import { AuthModule } from './auth/auth.module';
     LabelsModule,
     SupabaseModule,
     AuthModule,
+    FriendsModule,
+    CollaboratorsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule {}
+export class AppModule { }
