@@ -1,15 +1,15 @@
-name: Backend CI/CD
+name: Frontend CI
 
 on:
   push:
     branches: [main, develop, ci-cd/setup]
     paths:
-      - 'backend/**'
-      - '.github/workflows/backend-ci.yml'
+      - 'frontend/**'
+      - '.github/workflows/frontend-ci.yml'
   pull_request:
     branches: [main, develop]
     paths:
-      - 'backend/**'
+      - 'frontend/**'
   workflow_dispatch:
 
 env:
@@ -23,7 +23,7 @@ jobs:
     
     defaults:
       run:
-        working-directory: ./backend
+        working-directory: ./frontend
 
     steps:
       - name: Checkout code
@@ -41,12 +41,15 @@ jobs:
         run: npm run lint
         continue-on-error: true
 
+      - name: Run type check
+        run: npm run type-check
+
       - name: Build application
         run: npm run build
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: backend-dist
-          path: backend/dist/
+          name: frontend-dist
+          path: frontend/dist/
           retention-days: 7
