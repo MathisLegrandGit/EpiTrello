@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
-import { type Card, type Label, labelsApi } from '@/services/api'
+import { type Card, type Label, type BoardCollaborator, type UserProfile, labelsApi } from '@/services/api'
+import UserAvatar from '@/components/ui/UserAvatar.vue'
 
 interface Props {
     isOpen: boolean
@@ -10,13 +11,15 @@ interface Props {
     isDarkMode: boolean
     boardId: string | null
     canEdit?: boolean
+    boardCollaborators?: BoardCollaborator[]
+    boardOwner?: UserProfile
 }
 
 const props = defineProps<Props>()
 
 const emit = defineEmits<{
     (e: 'close'): void
-    (e: 'save', data: { title: string; description: string; labelIds: string[] }): void
+    (e: 'save', data: { title: string; description: string; labelIds: string[]; memberIds: string[] }): void
     (e: 'delete'): void
     (e: 'labelCreated', label: Label): void
     (e: 'refresh'): void
@@ -26,8 +29,10 @@ const emit = defineEmits<{
 const title = ref('')
 const description = ref('')
 const selectedLabelIds = ref<string[]>([])
+const selectedMemberIds = ref<string[]>([])
 const menuOpen = ref(false)
 const labelDropdownOpen = ref(false)
+const memberDropdownOpen = ref(false)
 const activeLabelMenuId = ref<string | null>(null)
 const isCreatingLabel = ref(false)
 const newLabelName = ref('')
@@ -44,6 +49,38 @@ const labelColors = [
 const originalTitle = ref('')
 const originalDescription = ref('')
 const originalLabelIds = ref<string[]>([])
+const originalMemberIds = ref<string[]>([])
+
+// Get all available members (owner + collaborators with accepted status)
+const availableMembers = computed(() => {
+    const members: { id: string; username: string; full_name?: string; avatar_url?: string }[] = []
+
+    // Add board owner if available
+    if (props.boardOwner) {
+        members.push({
+            id: props.boardOwner.id,
+            username: props.boardOwner.username,
+            full_name: props.boardOwner.full_name,
+            avatar_url: props.boardOwner.avatar_url
+        })
+    }
+
+    // Add accepted collaborators
+    if (props.boardCollaborators) {
+        for (const collab of props.boardCollaborators) {
+            if (collab.status === 'accepted' && collab.user && !members.some(m => m.id === collab.user_id)) {
+                members.push({
+                    id: collab.user_id,
+                    username: collab.user.username,
+                    full_name: collab.user.full_name,
+                    avatar_url: collab.user.avatar_url
+                })
+            }
+        }
+    }
+
+    return members
+})
 
 // Sync with props when card changes
 watch(() => props.card, (newCard) => {
@@ -51,19 +88,23 @@ watch(() => props.card, (newCard) => {
         title.value = newCard.title
         description.value = newCard.description || ''
         selectedLabelIds.value = [...(newCard.label_ids || [])]
+        selectedMemberIds.value = [...(newCard.member_ids || [])]
         // Store original values
         originalTitle.value = newCard.title
         originalDescription.value = newCard.description || ''
         originalLabelIds.value = [...(newCard.label_ids || [])]
+        originalMemberIds.value = [...(newCard.member_ids || [])]
     }
 }, { immediate: true })
 
 // Check if any changes were made
 const hasChanges = computed(() => {
     const labelIdsChanged = JSON.stringify([...selectedLabelIds.value].sort()) !== JSON.stringify([...originalLabelIds.value].sort())
+    const memberIdsChanged = JSON.stringify([...selectedMemberIds.value].sort()) !== JSON.stringify([...originalMemberIds.value].sort())
     return title.value !== originalTitle.value ||
         description.value !== originalDescription.value ||
-        labelIdsChanged
+        labelIdsChanged ||
+        memberIdsChanged
 })
 
 function handleDelete() {
@@ -77,7 +118,8 @@ function handleClose() {
         emit('save', {
             title: title.value,
             description: description.value,
-            labelIds: selectedLabelIds.value
+            labelIds: selectedLabelIds.value,
+            memberIds: selectedMemberIds.value
         })
     } else {
         emit('close')
@@ -115,6 +157,15 @@ function toggleLabel(labelId: string) {
     }
 }
 
+function toggleMember(userId: string) {
+    const index = selectedMemberIds.value.indexOf(userId)
+    if (index >= 0) {
+        selectedMemberIds.value.splice(index, 1)
+    } else {
+        selectedMemberIds.value.push(userId)
+    }
+}
+
 async function startDeletingLabel(labelId: string) {
     console.log('Deleting label with ID:', labelId)
     activeLabelMenuId.value = null
@@ -142,14 +193,14 @@ async function startDeletingLabel(labelId: string) {
             <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" />
 
             <!-- Modal -->
-            <div @click.stop="labelDropdownOpen = false; menuOpen = false; activeLabelMenuId = null"
+            <div @click.stop="labelDropdownOpen = false; memberDropdownOpen = false; menuOpen = false; activeLabelMenuId = null"
                 :class="isDarkMode ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-200'"
                 class="relative w-full max-w-xl mx-4 rounded-2xl border shadow-2xl animate-scale-in">
                 <!-- Header with column indicator -->
                 <div :class="isDarkMode ? 'bg-slate-800/50 border-slate-700' : 'bg-slate-50 border-slate-200'"
                     class="px-6 py-4 border-b flex items-center justify-between rounded-t-2xl">
                     <div class="flex items-center gap-3">
-                        <div class="w-3 h-3 rounded-full bg-gradient-to-br from-amber-400 to-orange-500" />
+                        <div class="w-3 h-3 rounded-full bg-linear-to-br from-amber-400 to-orange-500" />
                         <span :class="isDarkMode ? 'text-slate-300' : 'text-slate-600'" class="text-sm font-medium">
                             {{ columnTitle }}
                         </span>
@@ -239,11 +290,20 @@ async function startDeletingLabel(labelId: string) {
                         </label>
                         <div class="flex flex-wrap items-center gap-2">
                             <template v-for="(labelId, idx) in selectedLabelIds" :key="idx">
-                                <span v-if="labels.find(l => l.id === labelId)"
-                                    class="px-4 py-1.5 rounded-full text-sm font-medium text-white"
+                                <div v-if="labels.find(l => l.id === labelId)"
+                                    class="flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium text-white"
                                     :style="{ backgroundColor: labels.find(l => l.id === labelId)?.color }">
-                                    {{labels.find(l => l.id === labelId)?.name}}
-                                </span>
+                                    <span>{{labels.find(l => l.id === labelId)?.name}}</span>
+                                    <button v-if="canEdit" @click="toggleLabel(labelId)"
+                                        class="text-white/70 hover:text-white transition-colors">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20"
+                                            fill="currentColor">
+                                            <path fill-rule="evenodd"
+                                                d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                                                clip-rule="evenodd" />
+                                        </svg>
+                                    </button>
+                                </div>
                             </template>
 
                             <!-- Add Labels Button + Dropdown (only for editors) -->
@@ -296,7 +356,7 @@ async function startDeletingLabel(labelId: string) {
                                                 ]"
                                                 class="w-full px-2.5 py-2 text-sm text-left flex items-center gap-3 transition-colors cursor-pointer group rounded-lg relative">
 
-                                                <span class="w-4 h-4 rounded-full flex-shrink-0"
+                                                <span class="w-4 h-4 rounded-full shrink-0"
                                                     :style="{ backgroundColor: label.color }" />
                                                 <span :class="isDarkMode ? 'text-slate-200' : 'text-slate-700'"
                                                     class="flex-1 truncate">{{ label.name }}</span>
@@ -308,7 +368,7 @@ async function startDeletingLabel(labelId: string) {
                                                     <template v-if="selectedLabelIds.includes(label.id!)">
                                                         <!-- Checkmark (visible by default, hidden on hover) -->
                                                         <svg xmlns="http://www.w3.org/2000/svg"
-                                                            class="h-4 w-4 text-blue-500 flex-shrink-0 group-hover:hidden transition-opacity"
+                                                            class="h-4 w-4 text-blue-500 shrink-0 group-hover:hidden transition-opacity"
                                                             viewBox="0 0 20 20" fill="currentColor">
                                                             <path fill-rule="evenodd"
                                                                 d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
@@ -381,6 +441,96 @@ async function startDeletingLabel(labelId: string) {
                         </div>
                     </div>
 
+                    <!-- Members -->
+                    <div class="space-y-3">
+                        <label :class="isDarkMode ? 'text-slate-400' : 'text-slate-500'"
+                            class="text-sm font-medium flex items-center gap-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20"
+                                fill="currentColor">
+                                <path
+                                    d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z" />
+                            </svg>
+                            Members
+                        </label>
+                        <div class="flex flex-wrap items-center gap-2">
+                            <!-- Display selected members -->
+                            <template v-for="memberId in selectedMemberIds" :key="memberId">
+                                <div v-if="availableMembers.find(m => m.id === memberId)"
+                                    class="flex items-center gap-2 px-3 py-1.5 rounded-full"
+                                    :class="isDarkMode ? 'bg-slate-700' : 'bg-slate-100'">
+                                    <UserAvatar :avatarUrl="availableMembers.find(m => m.id === memberId)?.avatar_url"
+                                        :name="availableMembers.find(m => m.id === memberId)?.full_name || availableMembers.find(m => m.id === memberId)?.username"
+                                        size="sm" :isDarkMode="isDarkMode" />
+                                    <span :class="isDarkMode ? 'text-slate-200' : 'text-slate-700'"
+                                        class="text-sm font-medium">
+                                        {{availableMembers.find(m => m.id === memberId)?.full_name ||
+                                            availableMembers.find(m => m.id === memberId)?.username}}
+                                    </span>
+                                    <button v-if="canEdit" @click="toggleMember(memberId)"
+                                        :class="isDarkMode ? 'text-slate-400 hover:text-slate-200' : 'text-slate-400 hover:text-slate-600'"
+                                        class="ml-1 transition-colors">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20"
+                                            fill="currentColor">
+                                            <path fill-rule="evenodd"
+                                                d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                                                clip-rule="evenodd" />
+                                        </svg>
+                                    </button>
+                                </div>
+                            </template>
+
+                            <!-- Add Member Button + Dropdown (only for editors) -->
+                            <div v-if="canEdit && availableMembers.length > 0" class="relative" @click.stop>
+                                <button @click="memberDropdownOpen = !memberDropdownOpen"
+                                    :class="isDarkMode ? 'border-slate-600 text-slate-400 hover:border-slate-500' : 'border-slate-300 text-slate-500 hover:border-slate-400'"
+                                    class="px-4 py-1.5 rounded-full text-sm font-medium border border-dashed transition-colors flex items-center gap-1">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20"
+                                        fill="currentColor">
+                                        <path fill-rule="evenodd"
+                                            d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z"
+                                            clip-rule="evenodd" />
+                                    </svg>
+                                    Add member
+                                </button>
+
+                                <!-- Dropdown -->
+                                <div v-if="memberDropdownOpen"
+                                    :class="isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'"
+                                    class="absolute left-0 top-full mt-2 w-56 rounded-xl border shadow-lg overflow-hidden z-50">
+                                    <div class="p-1.5 space-y-1 max-h-60 overflow-y-auto">
+                                        <div v-for="member in availableMembers" :key="member.id"
+                                            @click="toggleMember(member.id); memberDropdownOpen = false" :class="[
+                                                isDarkMode ? 'hover:bg-slate-700' : 'hover:bg-slate-50',
+                                                selectedMemberIds.includes(member.id) ? (isDarkMode ? 'bg-slate-700' : 'bg-slate-100') : ''
+                                            ]"
+                                            class="w-full px-2.5 py-2 text-sm text-left flex items-center gap-3 transition-colors cursor-pointer rounded-lg">
+                                            <UserAvatar :avatarUrl="member.avatar_url"
+                                                :name="member.full_name || member.username" size="sm"
+                                                :isDarkMode="isDarkMode" />
+                                            <span :class="isDarkMode ? 'text-slate-200' : 'text-slate-700'"
+                                                class="flex-1 truncate">
+                                                {{ member.full_name || member.username }}
+                                            </span>
+                                            <svg v-if="selectedMemberIds.includes(member.id)"
+                                                xmlns="http://www.w3.org/2000/svg"
+                                                class="h-4 w-4 text-blue-500 shrink-0" viewBox="0 0 20 20"
+                                                fill="currentColor">
+                                                <path fill-rule="evenodd"
+                                                    d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                                                    clip-rule="evenodd" />
+                                            </svg>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- No collaborators message -->
+                            <span v-else-if="canEdit && availableMembers.length === 0"
+                                :class="isDarkMode ? 'text-slate-500' : 'text-slate-400'" class="text-sm italic">
+                                No collaborators available
+                            </span>
+                        </div>
+                    </div>
                     <!-- Description -->
                     <div class="space-y-3">
                         <label :class="isDarkMode ? 'text-slate-400' : 'text-slate-500'"

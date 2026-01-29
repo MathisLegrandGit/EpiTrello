@@ -7,11 +7,10 @@ import { SupabaseService } from '../supabase/supabase.service';
 import { SignUpDto } from './dto/signup.dto';
 import { LoginDto } from './dto/login.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
-import { UpdatePasswordDto } from './dto/update-password.dto';
 
 @Injectable()
 export class AuthService {
-  constructor(private readonly supabaseService: SupabaseService) { }
+  constructor(private readonly supabaseService: SupabaseService) {}
 
   async signUp(signUpDto: SignUpDto) {
     const { email, password, username } = signUpDto;
@@ -45,17 +44,17 @@ export class AuthService {
 
     if (!isEmail) {
       // Look up email by username
-      const { data, error } = await this.supabaseService
+      const { data: profileData, error } = await this.supabaseService
         .getClient()
         .from('profiles')
         .select('email')
         .eq('username', identifier)
         .single();
 
-      if (error || !data) {
+      if (error || !profileData) {
         throw new UnauthorizedException('Invalid login credentials');
       }
-      email = data.email;
+      email = (profileData as { email: string }).email;
     }
 
     const { data, error } = await this.supabaseService
@@ -77,15 +76,30 @@ export class AuthService {
       .eq('id', data.user.id)
       .single();
 
+    const profileTyped = profile as {
+      username?: string;
+      full_name?: string;
+      avatar_url?: string;
+    } | null;
+
     // Merge profile data into user_metadata
     const enrichedUser = {
       ...data.user,
       user_metadata: {
         ...data.user.user_metadata,
-        ...(profile && {
-          username: profile.username || data.user.user_metadata?.username,
-          full_name: profile.full_name || data.user.user_metadata?.full_name,
-          avatar_url: profile.avatar_url || data.user.user_metadata?.avatar_url,
+        ...(profileTyped && {
+          username:
+            profileTyped.username ||
+            (data.user.user_metadata as Record<string, unknown> | undefined)
+              ?.username,
+          full_name:
+            profileTyped.full_name ||
+            (data.user.user_metadata as Record<string, unknown> | undefined)
+              ?.full_name,
+          avatar_url:
+            profileTyped.avatar_url ||
+            (data.user.user_metadata as Record<string, unknown> | undefined)
+              ?.avatar_url,
         }),
       },
     };
@@ -96,7 +110,7 @@ export class AuthService {
     };
   }
 
-  async logout(accessToken: string) {
+  async logout() {
     const { error } = await this.supabaseService.getClient().auth.signOut();
 
     if (error) {
@@ -117,6 +131,12 @@ export class AuthService {
       .eq('id', id)
       .single();
 
+    const existingProfileTyped = existingProfile as {
+      username?: string;
+      full_name?: string;
+      avatar_url?: string;
+    } | null;
+
     // Upsert profiles table (create if doesn't exist, update if it does)
     const { data, error } = await this.supabaseService
       .getClient()
@@ -124,9 +144,9 @@ export class AuthService {
       .upsert(
         {
           id,
-          username: username ?? existingProfile?.username,
-          full_name: fullName ?? existingProfile?.full_name,
-          avatar_url: avatarUrl ?? existingProfile?.avatar_url,
+          username: username ?? existingProfileTyped?.username,
+          full_name: fullName ?? existingProfileTyped?.full_name,
+          avatar_url: avatarUrl ?? existingProfileTyped?.avatar_url,
           updated_at: new Date().toISOString(),
         },
         { onConflict: 'id' },
@@ -138,14 +158,22 @@ export class AuthService {
       throw new ConflictException(error.message);
     }
 
-    return data;
+    return data as {
+      id: string;
+      username?: string;
+      full_name?: string;
+      avatar_url?: string;
+      updated_at: string;
+    };
   }
 
-  async updatePassword(id: string, updatePasswordDto: UpdatePasswordDto) {
+  updatePassword(): never {
     // Note: Password updates require the user's session token on the frontend
     // Use supabase.auth.updateUser({ password: newPassword }) on the client side
     // This backend endpoint is a placeholder for future implementation
-    throw new UnauthorizedException('Password updates should be done through the Supabase client on the frontend');
+    throw new UnauthorizedException(
+      'Password updates should be done through the Supabase client on the frontend',
+    );
   }
 
   async uploadAvatar(

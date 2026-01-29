@@ -15,7 +15,7 @@ export class LabelsService {
 
   async findAll(boardId?: string): Promise<Label[]> {
     let query = this.supabaseService
-      .getClient()
+      .getAdminClient()
       .from('labels')
       .select('*')
       .order('name', { ascending: true });
@@ -26,36 +26,36 @@ export class LabelsService {
 
     const { data, error } = await query;
     if (error) throw error;
-    return data;
+    return data as Label[];
   }
 
   async findOne(id: string): Promise<Label> {
     const { data, error } = await this.supabaseService
-      .getClient()
+      .getAdminClient()
       .from('labels')
       .select('*')
       .eq('id', id)
       .single();
 
     if (error) throw new NotFoundException(`Label with ID ${id} not found`);
-    return data;
+    return data as Label;
   }
 
   async create(label: Label): Promise<Label> {
     const { data, error } = await this.supabaseService
-      .getClient()
+      .getAdminClient()
       .from('labels')
       .insert(label)
       .select()
       .single();
 
     if (error) throw error;
-    return data;
+    return data as Label;
   }
 
   async update(id: string, label: Partial<Label>): Promise<Label> {
     const { data, error } = await this.supabaseService
-      .getClient()
+      .getAdminClient()
       .from('labels')
       .update(label)
       .eq('id', id)
@@ -63,12 +63,12 @@ export class LabelsService {
       .single();
 
     if (error) throw new NotFoundException(`Label with ID ${id} not found`);
-    return data;
+    return data as Label;
   }
 
   async remove(id: string): Promise<void> {
     const { error } = await this.supabaseService
-      .getClient()
+      .getAdminClient()
       .from('labels')
       .delete()
       .eq('id', id);

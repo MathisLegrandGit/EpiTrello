@@ -4,7 +4,6 @@ import { useRoute, useRouter } from 'vue-router'
 import Button from '@/components/ui/button.vue'
 import CardDetailModal from '@/components/CardDetailModal.vue'
 import SettingsModal from '@/components/SettingsModal.vue'
-import CollaboratorsModal from '@/components/CollaboratorsModal.vue'
 import BoardCollaboratorsModal from '@/components/BoardCollaboratorsModal.vue'
 import NotificationsPanel from '@/components/NotificationsPanel.vue'
 import KanbanHeader from '@/components/kanban/KanbanHeader.vue'
@@ -14,7 +13,7 @@ import FloatingCard from '@/components/kanban/FloatingCard.vue'
 import { useBoard } from '@/composables/useBoard'
 import { useDragDrop } from '@/composables/useDragDrop'
 import { useAuth } from '@/composables/useAuth'
-import { notificationsApi, boardsApi, collaboratorsApi, type Board, type SharedBoard } from '@/services/api'
+import { notificationsApi, boardsApi, collaboratorsApi, usersApi, type Board, type SharedBoard, type BoardCollaborator, type UserProfile } from '@/services/api'
 import type { Card } from '@/services/api'
 
 const route = useRoute()
@@ -40,7 +39,6 @@ const {
 // UI state
 const isDarkMode = ref(true)
 const isSettingsOpen = ref(false)
-const isCollaboratorsOpen = ref(false)
 const isBoardCollaboratorsOpen = ref(false)
 const isNotificationsOpen = ref(false)
 const notificationCount = ref(0)
@@ -48,10 +46,18 @@ const { user } = useAuth()
 
 // Board info
 const currentBoard = ref<Board | null>(null)
+const boardCollaborators = ref<BoardCollaborator[]>([])
+const boardOwnerProfile = ref<UserProfile | null>(null)
 const boardId = computed(() => route.params.id as string)
 const isOwner = computed(() => currentBoard.value?.user_id === user.value?.id)
 const userRole = ref<string>('viewer')
 const canEdit = computed(() => isOwner.value || userRole.value === 'editor')
+
+// Check if the loaded board data matches the current route
+// This prevents showing stale data from a previous board
+const isBoardDataReady = computed(() => {
+  return !isLoading.value && currentBoardId.value === boardId.value
+})
 
 // Column menu state
 const columnMenuOpen = ref<string | null>(null)
@@ -129,7 +135,7 @@ function openCardDetail(card: Card, columnId: string) {
   isCardDetailOpen.value = true
 }
 
-async function handleCardSave(data: { title: string; description: string; labelIds: string[] }) {
+async function handleCardSave(data: { title: string; description: string; labelIds: string[]; memberIds: string[] }) {
   if (!selectedCard.value || !selectedCardColumnId.value) return
 
   try {
@@ -137,6 +143,7 @@ async function handleCardSave(data: { title: string; description: string; labelI
       title: data.title,
       description: data.description,
       label_ids: data.labelIds,
+      member_ids: data.memberIds,
     })
 
     // Update in columns
@@ -211,14 +218,8 @@ function handleCardMouseDown(event: MouseEvent, card: Card, columnId: string) {
   onCardMouseDown(event, card, columnId)
 }
 
-function openCollaborators() {
-  isCollaboratorsOpen.value = true
-  isNotificationsOpen.value = false
-}
-
 function openNotifications() {
   isNotificationsOpen.value = !isNotificationsOpen.value
-  isCollaboratorsOpen.value = false
 }
 
 async function loadNotificationCount() {
@@ -243,9 +244,30 @@ async function loadBoardInfo() {
   try {
     currentBoard.value = await boardsApi.getOne(boardId.value)
 
+    // Fetch collaborators for card member assignment
+    boardCollaborators.value = await collaboratorsApi.getCollaborators(boardId.value)
+
+    // Fetch owner profile for card member assignment
+    if (currentBoard.value?.user_id) {
+      const ownerProfile = await usersApi.getProfile(currentBoard.value.user_id)
+      if (ownerProfile) {
+        boardOwnerProfile.value = ownerProfile
+      }
+    }
+
     // Determine user's role
     if (currentBoard.value?.user_id === user.value?.id) {
       userRole.value = 'owner'
+      // Use current user as owner profile if they are the owner
+      if (user.value) {
+        boardOwnerProfile.value = {
+          id: user.value.id,
+          username: user.value.user_metadata?.username || 'Owner',
+          email: user.value.email || '',
+          full_name: user.value.user_metadata?.full_name,
+          avatar_url: user.value.user_metadata?.avatar_url,
+        }
+      }
     } else if (user.value?.id) {
       // Check if user is a collaborator
       const sharedBoards = await collaboratorsApi.getSharedBoards(user.value.id)
@@ -277,6 +299,13 @@ onMounted(async () => {
 // Watch for route changes (switching boards)
 watch(() => route.params.id, async (newId) => {
   if (newId && typeof newId === 'string') {
+    // Reset board-specific state immediately to prevent stale data flash
+    currentBoard.value = null
+    boardCollaborators.value = []
+    boardOwnerProfile.value = null
+    userRole.value = 'viewer'
+    
+    // Load new board data
     await loadBoardInfo()
     fetchData(newId)
   }
@@ -292,30 +321,29 @@ onUnmounted(() => {
 
 <template>
   <div @click="columnMenuOpen = null"
-    :class="isDarkMode ? 'bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800' : 'bg-gradient-to-br from-slate-50 via-white to-slate-100'"
+    :class="isDarkMode ? 'bg-linear-to-br from-slate-900 via-slate-900 to-slate-800' : 'bg-linear-to-br from-slate-50 via-white to-slate-100'"
     class="min-h-screen flex flex-col transition-all duration-500">
 
     <!-- Header (Full Width Banner) -->
     <div class="relative">
       <KanbanHeader :isDarkMode="isDarkMode" :user="user" :notificationCount="notificationCount"
         :boardTitle="currentBoard?.title" :showBackButton="true" @toggle-dark-mode="toggleDarkMode"
-        @open-settings="isSettingsOpen = true" @open-collaborators="openCollaborators"
+        @open-settings="isSettingsOpen = true"
         @open-board-collaborators="isBoardCollaboratorsOpen = true" @open-notifications="openNotifications"
         @go-to-dashboard="goToDashboard" />
 
       <!-- Notifications Panel (positioned relative to header) -->
       <div class="absolute right-8 top-full z-50">
         <NotificationsPanel :isOpen="isNotificationsOpen" :isDarkMode="isDarkMode" :user="user"
-          @close="isNotificationsOpen = false" @update-count="handleNotificationCountUpdate"
-          @open-collaborators="openCollaborators" />
+          @close="isNotificationsOpen = false" @update-count="handleNotificationCountUpdate" />
       </div>
     </div>
 
-    <div class="p-8 flex-1 flex flex-col overflow-hidden">
-      <div class="max-w-7xl mx-auto w-full flex-1 flex flex-col">
+    <div class="py-8 flex-1 flex flex-col overflow-hidden">
+      <div class="w-full flex-1 flex flex-col overflow-hidden">
 
-        <!-- Loading State -->
-        <div v-if="isLoading" class="flex items-center justify-center h-64">
+        <!-- Loading State - Show when loading OR when loaded data doesn't match current route -->
+        <div v-if="isLoading || !isBoardDataReady" class="flex items-center justify-center h-64 px-8">
           <div class="flex flex-col items-center gap-4">
             <div class="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
             <span :class="isDarkMode ? 'text-slate-400' : 'text-slate-500'" class="text-sm font-medium">Loading your
@@ -325,7 +353,7 @@ onUnmounted(() => {
 
         <!-- Error State -->
         <div v-else-if="error"
-          class="bg-red-50 border border-red-200 text-red-700 px-6 py-4 rounded-2xl mb-4 flex items-center gap-4 animate-scale-in">
+          class="bg-red-50 border border-red-200 text-red-700 px-6 py-4 rounded-2xl mb-4 mx-8 flex items-center gap-4 animate-scale-in">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
             <path fill-rule="evenodd"
               d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
@@ -336,7 +364,7 @@ onUnmounted(() => {
         </div>
 
         <!-- Kanban Board -->
-        <div v-else class="flex gap-6 flex-1 overflow-x-auto pb-4">
+        <div v-else class="flex gap-6 flex-1 overflow-x-auto pb-4 px-8">
           <KanbanColumn v-for="column in columns" :key="column.id" :column="column" :isDarkMode="isDarkMode"
             :labels="labels" :menuOpen="columnMenuOpen === column.id"
             :colorPickerOpen="colorPickerColumnId === column.id" :editingTitle="editingColumnId === column.id"
@@ -360,20 +388,18 @@ onUnmounted(() => {
 
     <!-- Card Detail Modal -->
     <CardDetailModal :isOpen="isCardDetailOpen" :card="selectedCard" :columnTitle="selectedCardColumnTitle"
-      :labels="labels" :isDarkMode="isDarkMode" :boardId="currentBoardId" :canEdit="canEdit" @close="closeCardDetail"
+      :labels="labels" :isDarkMode="isDarkMode" :boardId="currentBoardId" :canEdit="canEdit"
+      :boardCollaborators="boardCollaborators" :boardOwner="boardOwnerProfile ?? undefined" @close="closeCardDetail"
       @save="handleCardSave" @delete="deleteCardFromDetail" @labelCreated="fetchLabels" @refresh="fetchLabels" />
 
     <!-- Settings Modal -->
     <SettingsModal :isOpen="isSettingsOpen" :isDarkMode="isDarkMode" @close="isSettingsOpen = false"
       @toggle-dark-mode="toggleDarkMode" />
 
-    <!-- Collaborators Modal -->
-    <CollaboratorsModal :isOpen="isCollaboratorsOpen" :isDarkMode="isDarkMode" :user="user"
-      @close="isCollaboratorsOpen = false" @refresh-notifications="loadNotificationCount" />
-
     <!-- Board Collaborators Modal -->
     <BoardCollaboratorsModal :isOpen="isBoardCollaboratorsOpen" :isDarkMode="isDarkMode" :boardId="boardId"
-      :userId="user?.id || ''" :isOwner="isOwner" @close="isBoardCollaboratorsOpen = false" />
+      :userId="user?.id || ''" :isOwner="isOwner" :ownerId="currentBoard?.user_id"
+      @close="isBoardCollaboratorsOpen = false" />
   </div>
 </template>
 

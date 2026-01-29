@@ -1,6 +1,13 @@
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
 // Types matching backend interfaces
+export interface CardMember {
+    id: string;
+    username: string;
+    full_name?: string;
+    avatar_url?: string;
+}
+
 export interface Card {
     id?: string;
     list_id: string;
@@ -8,6 +15,8 @@ export interface Card {
     description?: string;
     position: number;
     label_ids?: string[];
+    member_ids?: string[];
+    members?: CardMember[];
     created_at?: string;
     updated_at?: string;
 }
@@ -73,11 +82,41 @@ export interface AuthResponse {
     session: Session;
 }
 
+/**
+ * Get the access token from the stored session cookie.
+ * This is used to authenticate requests to the backend.
+ */
+function getAccessToken(): string | null {
+    const cookieValue = document.cookie
+        .split('; ')
+        .find(row => row.startsWith('supabase_session='));
+    
+    if (!cookieValue) return null;
+    
+    try {
+        const cookieParts = cookieValue.split('=');
+        const sessionValue = cookieParts[1];
+        if (!sessionValue) return null;
+        const session = JSON.parse(decodeURIComponent(sessionValue));
+        return session?.access_token || null;
+    } catch {
+        return null;
+    }
+}
+
 // Generic fetch wrapper with error handling
 async function fetchApi<T>(endpoint: string, options?: RequestInit): Promise<T> {
+    // Get the access token and add Authorization header if available
+    const accessToken = getAccessToken();
+    const authHeaders: Record<string, string> = {};
+    if (accessToken) {
+        authHeaders['Authorization'] = `Bearer ${accessToken}`;
+    }
+
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
         headers: {
             'Content-Type': 'application/json',
+            ...authHeaders,
             ...options?.headers,
         },
         ...options,
@@ -178,8 +217,17 @@ export const authApi = {
     uploadAvatar: async (userId: string, file: File): Promise<string> => {
         const formData = new FormData();
         formData.append('avatar', file);
+        
+        // Add Authorization header if available
+        const accessToken = getAccessToken();
+        const headers: Record<string, string> = {};
+        if (accessToken) {
+            headers['Authorization'] = `Bearer ${accessToken}`;
+        }
+        
         const response = await fetch(`${API_BASE_URL}/auth/avatar/${userId}`, {
             method: 'POST',
+            headers,
             body: formData,
         });
         if (!response.ok) {
@@ -191,7 +239,7 @@ export const authApi = {
     },
 };
 
-// Friend profile type
+// User profile type
 export interface UserProfile {
     id: string;
     username: string;
@@ -200,66 +248,25 @@ export interface UserProfile {
     avatar_url?: string;
 }
 
-export interface FriendRequest {
-    id: string;
-    from_user_id: string;
-    to_user_id: string;
-    status: 'pending' | 'accepted' | 'rejected';
-    created_at: string;
-    from_user?: UserProfile;
-    to_user?: UserProfile;
-}
-
-export interface Friendship {
-    id: string;
-    user_id: string;
-    friend_id: string;
-    created_at: string;
-    friend?: UserProfile;
-}
-
 export interface Notification {
     id: string;
     user_id: string;
-    type: 'friend_request' | 'friend_accepted' | 'friend_rejected' | 'board_invite' | 'board_removed';
+    type: 'board_invite' | 'board_removed';
     data: {
-        request_id?: string;
         from_user_id?: string;
-        friend_id?: string;
         [key: string]: unknown;
     };
     read: boolean;
     created_at: string;
 }
 
-// Friends API
-export const friendsApi = {
+// Users API - for searching and getting user profiles
+export const usersApi = {
     search: (query: string, excludeUserId?: string) =>
-        fetchApi<UserProfile[]>(`/friends/search?q=${encodeURIComponent(query)}${excludeUserId ? `&excludeUserId=${excludeUserId}` : ''}`),
+        fetchApi<UserProfile[]>(`/users/search?q=${encodeURIComponent(query)}${excludeUserId ? `&excludeUserId=${excludeUserId}` : ''}`),
 
-    getFriends: (userId: string) =>
-        fetchApi<Friendship[]>(`/friends/${userId}`),
-
-    sendRequest: (fromUserId: string, toUserId: string) =>
-        fetchApi<FriendRequest>('/friends/request', {
-            method: 'POST',
-            body: JSON.stringify({ fromUserId, toUserId }),
-        }),
-
-    getIncomingRequests: (userId: string) =>
-        fetchApi<FriendRequest[]>(`/friends/requests/${userId}/incoming`),
-
-    getOutgoingRequests: (userId: string) =>
-        fetchApi<FriendRequest[]>(`/friends/requests/${userId}/outgoing`),
-
-    respondToRequest: (requestId: string, status: 'accepted' | 'rejected') =>
-        fetchApi<FriendRequest>(`/friends/request/${requestId}`, {
-            method: 'PATCH',
-            body: JSON.stringify({ status }),
-        }),
-
-    removeFriend: (userId: string, friendId: string) =>
-        fetchApi<void>(`/friends/${userId}/${friendId}`, { method: 'DELETE' }),
+    getProfile: (userId: string) =>
+        fetchApi<UserProfile | null>(`/users/profile/${userId}`),
 };
 
 // Notifications API

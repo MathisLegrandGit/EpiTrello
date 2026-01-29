@@ -14,31 +14,36 @@ import { AuthService } from './auth.service';
 import { SignUpDto } from './dto/signup.dto';
 import { LoginDto } from './dto/login.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
-import { UpdatePasswordDto } from './dto/update-password.dto';
+
+interface UploadedFileData {
+  originalname: string;
+  buffer: Buffer;
+  mimetype: string;
+}
 
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Post('signup')
-  async signUp(@Body() signUpDto: SignUpDto) {
+  signUp(@Body() signUpDto: SignUpDto) {
     return this.authService.signUp(signUpDto);
   }
 
   @Post('login')
   @HttpCode(HttpStatus.OK)
-  async login(@Body() loginDto: LoginDto) {
+  login(@Body() loginDto: LoginDto) {
     return this.authService.login(loginDto);
   }
 
   @Post('logout')
   @HttpCode(HttpStatus.OK)
-  async logout() {
-    return this.authService.logout('');
+  logout() {
+    return this.authService.logout();
   }
 
   @Patch('profile/:id')
-  async updateProfile(
+  updateProfile(
     @Param('id') id: string,
     @Body() updateProfileDto: UpdateProfileDto,
   ) {
@@ -46,16 +51,16 @@ export class AuthController {
   }
 
   @Patch('password/:id')
-  async updatePassword(
-    @Param('id') id: string,
-    @Body() updatePasswordDto: UpdatePasswordDto,
-  ) {
-    return this.authService.updatePassword(id, updatePasswordDto);
+  updatePassword() {
+    return this.authService.updatePassword();
   }
 
   @Post('avatar/:id')
   @UseInterceptors(FileInterceptor('avatar'))
-  async uploadAvatar(@Param('id') id: string, @UploadedFile() file: any) {
+  uploadAvatar(
+    @Param('id') id: string,
+    @UploadedFile() file: UploadedFileData,
+  ) {
     return this.authService.uploadAvatar(id, file);
   }
 }

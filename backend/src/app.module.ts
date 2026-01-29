@@ -8,8 +8,9 @@ import { CardsModule } from './cards/cards.module';
 import { LabelsModule } from './labels/labels.module';
 import { SupabaseModule } from './supabase/supabase.module';
 import { AuthModule } from './auth/auth.module';
-import { FriendsModule } from './friends/friends.module';
+import { UsersModule } from './users/users.module';
 import { CollaboratorsModule } from './collaborators/collaborators.module';
+import { NotificationsModule } from './notifications/notifications.module';
 
 @Module({
   imports: [
@@ -23,10 +24,11 @@ import { CollaboratorsModule } from './collaborators/collaborators.module';
     LabelsModule,
     SupabaseModule,
     AuthModule,
-    FriendsModule,
+    UsersModule,
     CollaboratorsModule,
+    NotificationsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule { }
+export class AppModule {}

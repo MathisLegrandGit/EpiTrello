@@ -17,7 +17,7 @@ export class ListsService {
 
   async findAll(boardId?: string): Promise<List[]> {
     let query = this.supabaseService
-      .getClient()
+      .getAdminClient()
       .from('lists')
       .select('*')
       .order('position', { ascending: true });
@@ -28,36 +28,36 @@ export class ListsService {
 
     const { data, error } = await query;
     if (error) throw error;
-    return data;
+    return data as List[];
   }
 
   async findOne(id: string): Promise<List> {
     const { data, error } = await this.supabaseService
-      .getClient()
+      .getAdminClient()
       .from('lists')
       .select('*')
       .eq('id', id)
       .single();
 
     if (error) throw new NotFoundException(`List with ID ${id} not found`);
-    return data;
+    return data as List;
   }
 
   async create(list: List): Promise<List> {
     const { data, error } = await this.supabaseService
-      .getClient()
+      .getAdminClient()
       .from('lists')
       .insert(list)
       .select()
       .single();
 
     if (error) throw error;
-    return data;
+    return data as List;
   }
 
   async update(id: string, list: Partial<List>): Promise<List> {
     const { data, error } = await this.supabaseService
-      .getClient()
+      .getAdminClient()
       .from('lists')
       .update(list)
       .eq('id', id)
@@ -65,12 +65,12 @@ export class ListsService {
       .single();
 
     if (error) throw new NotFoundException(`List with ID ${id} not found`);
-    return data;
+    return data as List;
   }
 
   async remove(id: string): Promise<void> {
     const { error } = await this.supabaseService
-      .getClient()
+      .getAdminClient()
       .from('lists')
       .delete()
       .eq('id', id);

@@ -14,11 +14,24 @@ export interface Board {
 
 @Injectable()
 export class BoardsService {
-  constructor(private supabaseService: SupabaseService) { }
+  constructor(private supabaseService: SupabaseService) {}
+
+  /**
+   * Get the appropriate Supabase client.
+   *
+   * IMPORTANT: For board operations, we use the admin client because:
+   * 1. Supabase RLS typically only allows users to read boards they own
+   * 2. Collaborators need to access boards they don't own
+   * 3. Access control is handled at the application level via the collaborators system
+   */
+  private getClient() {
+    // Always use admin client for board operations to handle collaborator access
+    // The collaborator access control is handled at the application level
+    return this.supabaseService.getAdminClient();
+  }
 
   async findAll(userId?: string): Promise<Board[]> {
-    let query = this.supabaseService
-      .getClient()
+    let query = this.getClient()
       .from('boards')
       .select('*')
       .order('last_opened_at', { ascending: false, nullsFirst: false });
@@ -29,13 +42,12 @@ export class BoardsService {
 
     const { data, error } = await query;
 
-    if (error) throw error;
-    return data;
+    if (error) throw new Error(error.message);
+    return data as Board[];
   }
 
   async findOne(id: string): Promise<Board> {
-    const { data, error } = await this.supabaseService
-      .getClient()
+    const { data, error } = await this.getClient()
       .from('boards')
       .select('*')
       .eq('id', id)
@@ -46,52 +58,48 @@ export class BoardsService {
     // Update last_opened_at when board is accessed
     await this.updateLastOpened(id);
 
-    return data;
+    return data as Board;
   }
 
   async updateLastOpened(id: string): Promise<void> {
-    await this.supabaseService
-      .getClient()
+    await this.getClient()
       .from('boards')
       .update({ last_opened_at: new Date().toISOString() })
       .eq('id', id);
   }
 
   async create(board: Board): Promise<Board> {
-    const { data, error } = await this.supabaseService
-      .getClient()
+    const client = this.getClient();
+    const { data, error } = await client
       .from('boards')
       .insert(board)
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) throw new Error(error.message);
 
     // Create default columns for the new board
     const defaultLists = [
       { title: 'To Do', position: 0, color: '#3b82f6' },
       { title: 'In Progress', position: 1, color: '#f97316' },
-      { title: 'Done', position: 2, color: '#22c55e' }
+      { title: 'Done', position: 2, color: '#22c55e' },
     ];
 
+    const boardId = (data as { id: string }).id;
     for (const list of defaultLists) {
-      await this.supabaseService
-        .getClient()
-        .from('lists')
-        .insert({
-          board_id: data.id,
-          title: list.title,
-          position: list.position,
-          color: list.color,
-        });
+      await client.from('lists').insert({
+        board_id: boardId,
+        title: list.title,
+        position: list.position,
+        color: list.color,
+      });
     }
 
-    return data;
+    return data as Board;
   }
 
   async update(id: string, board: Partial<Board>): Promise<Board> {
-    const { data, error } = await this.supabaseService
-      .getClient()
+    const { data, error } = await this.getClient()
       .from('boards')
       .update(board)
       .eq('id', id)
@@ -99,17 +107,16 @@ export class BoardsService {
       .single();
 
     if (error) throw new NotFoundException(`Board with ID ${id} not found`);
-    return data;
+    return data as Board;
   }
 
   async remove(id: string): Promise<void> {
-    const { error } = await this.supabaseService
-      .getClient()
+    const { error } = await this.getClient()
       .from('boards')
       .delete()
       .eq('id', id);
 
-    if (error) throw error;
+    if (error) throw new Error(error.message);
   }
 
   /**
@@ -123,7 +130,16 @@ export class BoardsService {
     }
 
     // Color options matching frontend
-    const colors = ['#8b5cf6', '#06b6d4', '#10b981', '#f43f5e', '#f59e0b', '#6366f1', '#d946ef', '#0ea5e9'];
+    const colors = [
+      '#8b5cf6',
+      '#06b6d4',
+      '#10b981',
+      '#f43f5e',
+      '#f59e0b',
+      '#6366f1',
+      '#d946ef',
+      '#0ea5e9',
+    ];
     const randomColor = colors[Math.floor(Math.random() * colors.length)];
 
     // Create default board with random color
@@ -134,18 +150,8 @@ export class BoardsService {
       color: randomColor,
     });
 
-    // Create default lists for the board
-    const defaultLists = ['To Do', 'In Progress', 'Done'];
-    for (let i = 0; i < defaultLists.length; i++) {
-      await this.supabaseService
-        .getClient()
-        .from('lists')
-        .insert({
-          board_id: board.id,
-          title: defaultLists[i],
-          position: i,
-        });
-    }
+    // Create default lists for the board (already created by this.create method)
+    // Note: the default lists are already created in the create method above
 
     return board;
   }

@@ -5,9 +5,9 @@ import { NotificationsController } from './notifications.controller';
 import { SupabaseModule } from '../supabase/supabase.module';
 
 @Module({
-    imports: [SupabaseModule],
-    controllers: [FriendsController, NotificationsController],
-    providers: [FriendsService],
-    exports: [FriendsService],
+  imports: [SupabaseModule],
+  controllers: [FriendsController, NotificationsController],
+  providers: [FriendsService],
+  exports: [FriendsService],
 })
-export class FriendsModule { }
+export class FriendsModule {}

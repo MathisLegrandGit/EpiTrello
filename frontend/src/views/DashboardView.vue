@@ -5,9 +5,9 @@ import { boardsApi, notificationsApi, collaboratorsApi, type Board, type SharedB
 import { useAuth } from '@/composables/useAuth'
 import KanbanHeader from '@/components/kanban/KanbanHeader.vue'
 import SettingsModal from '@/components/SettingsModal.vue'
-import CollaboratorsModal from '@/components/CollaboratorsModal.vue'
 import NotificationsPanel from '@/components/NotificationsPanel.vue'
 import BoardCollaboratorsModal from '@/components/BoardCollaboratorsModal.vue'
+import UserAvatar from '@/components/ui/UserAvatar.vue'
 
 const router = useRouter()
 const { user } = useAuth()
@@ -30,7 +30,6 @@ const openMenuBoardId = ref<string | null>(null)
 
 // Modal states (same as KanbanView)
 const isSettingsOpen = ref(false)
-const isCollaboratorsOpen = ref(false)
 const isNotificationsOpen = ref(false)
 const notificationCount = ref(0)
 
@@ -209,10 +208,6 @@ function toggleDarkMode() {
     isDarkMode.value = !isDarkMode.value
 }
 
-function openCollaborators() {
-    isCollaboratorsOpen.value = true
-}
-
 function openBoardCollaborators(board: Board | SharedBoard) {
     if (!board.id) return
     collaboratingBoardId.value = board.id
@@ -316,19 +311,18 @@ watch(userId, (newId) => {
 
 <template>
     <div class="min-h-screen flex flex-col transition-colors duration-300"
-        :class="isDarkMode ? 'bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800' : 'bg-gradient-to-br from-slate-50 via-white to-slate-100'">
+        :class="isDarkMode ? 'bg-linear-to-br from-slate-900 via-slate-900 to-slate-800' : 'bg-linear-to-br from-slate-50 via-white to-slate-100'">
 
         <!-- Real KanbanHeader -->
         <div class="relative">
             <KanbanHeader :isDarkMode="isDarkMode" :user="user" :notificationCount="notificationCount"
                 @toggle-dark-mode="toggleDarkMode" @open-settings="isSettingsOpen = true"
-                @open-collaborators="openCollaborators" @open-notifications="openNotifications" />
+                @open-notifications="openNotifications" />
 
             <!-- Notifications Panel -->
             <div class="absolute right-8 top-full z-50">
                 <NotificationsPanel :isOpen="isNotificationsOpen" :isDarkMode="isDarkMode" :user="user"
-                    @close="isNotificationsOpen = false" @update-count="handleNotificationCountUpdate"
-                    @open-collaborators="openCollaborators" />
+                    @close="isNotificationsOpen = false" @update-count="handleNotificationCountUpdate" />
             </div>
         </div>
 
@@ -367,7 +361,7 @@ watch(userId, (newId) => {
                     Create your first board to get started
                 </p>
                 <button @click="showCreateModal = true"
-                    class="inline-flex items-center gap-2 px-6 py-3 rounded-xl font-semibold text-white bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-400 hover:to-blue-500 transition-all shadow-lg shadow-blue-500/25">
+                    class="inline-flex items-center gap-2 px-6 py-3 rounded-xl font-semibold text-white bg-linear-to-r from-blue-500 to-blue-600 hover:from-blue-400 hover:to-blue-500 transition-all shadow-lg shadow-blue-500/25">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
                     </svg>
@@ -383,7 +377,7 @@ watch(userId, (newId) => {
                     @click="openBoard(board.id!)">
 
                     <!-- Board Color Banner -->
-                    <div class="h-24 relative bg-gradient-to-br" :class="getBoardGradient(board)">
+                    <div class="h-24 relative bg-linear-to-br" :class="getBoardGradient(board)">
                         <!-- Pattern overlay -->
                         <div class="absolute inset-0 opacity-20"
                             style="background-image: url('data:image/svg+xml,%3Csvg width=\'20\' height=\'20\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cpath d=\'M0 0h20v20H0V0zm10 17a7 7 0 1 0 0-14 7 7 0 0 0 0 14z\' fill=\'%23ffffff\' fill-opacity=\'0.1\'/%3E%3C/svg%3E');" />
@@ -391,11 +385,11 @@ watch(userId, (newId) => {
                         <!-- Actions (always visible) -->
                         <div class="absolute top-3 right-3 flex gap-2">
                             <button @click.stop="openBoardCollaborators(board)"
-                                class="p-2 rounded-lg bg-black/30 backdrop-blur-sm text-white/80 hover:text-emerald-400 hover:bg-black/40 transition-colors"
-                                title="Share Board">
-                                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                                class="p-2 rounded-lg bg-black/30 backdrop-blur-sm text-white/80 hover:text-cyan-400 hover:bg-black/40 transition-colors"
+                                title="Board Collaborators">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
                                     <path
-                                        d="M12 12.75c1.63 0 3.07.39 4.24.9 1.08.48 1.76 1.56 1.76 2.73V18H6v-1.61c0-1.18.68-2.26 1.76-2.73 1.17-.52 2.61-.91 4.24-.91zM4 13c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm1.13 1.1c-.37-.06-.74-.1-1.13-.1-.99 0-1.93.21-2.78.58A2.01 2.01 0 000 16.43V18h4.5v-1.61c0-.83.23-1.61.63-2.29zM20 13c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm4 3.43c0-.81-.48-1.53-1.22-1.85A6.95 6.95 0 0020 14c-.39 0-.76.04-1.13.1.4.68.63 1.46.63 2.29V18H24v-1.57zM12 6c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3z" />
+                                        d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z" />
                                 </svg>
                             </button>
                             <button @click.stop="startEditing(board)"
@@ -473,7 +467,7 @@ watch(userId, (newId) => {
                         :class="isDarkMode ? 'bg-white/5 hover:bg-white/10' : 'bg-white hover:shadow-slate-300/50 border border-slate-200'">
 
                         <!-- Board Color Banner -->
-                        <div class="h-24 relative bg-gradient-to-br" :class="getSharedBoardGradient(board)">
+                        <div class="h-24 relative bg-linear-to-br" :class="getSharedBoardGradient(board)">
                             <!-- Pattern overlay -->
                             <div class="absolute inset-0 opacity-20"
                                 style="background-image: url('data:image/svg+xml,%3Csvg width=\'20\' height=\'20\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cpath d=\'M0 0h20v20H0V0zm10 17a7 7 0 1 0 0-14 7 7 0 0 0 0 14z\' fill=\'%23ffffff\' fill-opacity=\'0.1\'/%3E%3C/svg%3E');" />
@@ -492,13 +486,8 @@ watch(userId, (newId) => {
                                 {{ board.title }}
                             </h3>
                             <div class="flex items-center gap-2 mb-4">
-                                <div
-                                    class="w-5 h-5 rounded-full bg-slate-700 flex items-center justify-center text-white text-xs overflow-hidden">
-                                    <img v-if="board.owner?.avatar_url" :src="board.owner.avatar_url"
-                                        class="w-full h-full object-cover" />
-                                    <span v-else>{{ String(board.owner?.full_name || board.owner?.username || '?')[0]
-                                    }}</span>
-                                </div>
+                                <UserAvatar :avatarUrl="board.owner?.avatar_url"
+                                    :name="board.owner?.full_name || board.owner?.username" size="xs" />
                                 <p class="text-sm truncate" :class="isDarkMode ? 'text-slate-500' : 'text-slate-400'">
                                     Invited by {{ board.owner?.full_name || board.owner?.username }}
                                 </p>
@@ -507,7 +496,7 @@ watch(userId, (newId) => {
                             <!-- Actions -->
                             <div class="flex gap-3">
                                 <button @click="respondToInvitation(board, false)"
-                                    class="flex-1 px-4 py-2.5 bg-gradient-to-br from-slate-700/80 to-slate-800/80 text-slate-300 rounded-xl font-semibold hover:from-slate-600 hover:to-slate-700 hover:text-slate-100 transition-all duration-300 flex items-center justify-center gap-2 text-sm border border-slate-600/30 hover:border-slate-500/50">
+                                    class="flex-1 px-4 py-2.5 bg-linear-to-br from-slate-700/80 to-slate-800/80 text-slate-300 rounded-xl font-semibold hover:from-slate-600 hover:to-slate-700 hover:text-slate-100 transition-all duration-300 flex items-center justify-center gap-2 text-sm border border-slate-600/30 hover:border-slate-500/50">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                             d="M6 18L18 6M6 6l12 12" />
@@ -515,7 +504,7 @@ watch(userId, (newId) => {
                                     Decline
                                 </button>
                                 <button @click="respondToInvitation(board, true)"
-                                    class="flex-1 px-4 py-2.5 bg-gradient-to-br from-emerald-500 to-teal-600 text-white rounded-xl font-semibold hover:from-emerald-400 hover:to-teal-500 transition-all duration-300 flex items-center justify-center gap-2 text-sm shadow-lg shadow-emerald-500/30 hover:shadow-emerald-400/40 hover:scale-[1.02]">
+                                    class="flex-1 px-4 py-2.5 bg-linear-to-br from-emerald-500 to-teal-600 text-white rounded-xl font-semibold hover:from-emerald-400 hover:to-teal-500 transition-all duration-300 flex items-center justify-center gap-2 text-sm shadow-lg shadow-emerald-500/30 hover:shadow-emerald-400/40 hover:scale-[1.02]">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                             d="M5 13l4 4L19 7" />
@@ -558,7 +547,7 @@ watch(userId, (newId) => {
                         @click="openBoard(board.id)">
 
                         <!-- Board Color Banner -->
-                        <div class="h-24 relative bg-gradient-to-br" :class="getSharedBoardGradient(board)">
+                        <div class="h-24 relative bg-linear-to-br" :class="getSharedBoardGradient(board)">
                             <!-- Pattern overlay -->
                             <div class="absolute inset-0 opacity-20"
                                 style="background-image: url('data:image/svg+xml,%3Csvg width=\'20\' height=\'20\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cpath d=\'M0 0h20v20H0V0zm10 17a7 7 0 1 0 0-14 7 7 0 0 0 0 14z\' fill=\'%23ffffff\' fill-opacity=\'0.1\'/%3E%3C/svg%3E');" />
@@ -619,13 +608,8 @@ watch(userId, (newId) => {
                                 {{ board.title }}
                             </h3>
                             <div class="flex items-center gap-2">
-                                <div
-                                    class="w-5 h-5 rounded-full bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center text-white text-xs overflow-hidden">
-                                    <img v-if="board.owner?.avatar_url" :src="board.owner.avatar_url"
-                                        class="w-full h-full object-cover" />
-                                    <span v-else>{{ String(board.owner?.full_name || board.owner?.username || '?')[0]
-                                    }}</span>
-                                </div>
+                                <UserAvatar :avatarUrl="board.owner?.avatar_url"
+                                    :name="board.owner?.full_name || board.owner?.username" size="xs" />
                                 <p class="text-sm truncate" :class="isDarkMode ? 'text-slate-500' : 'text-slate-400'">
                                     {{ board.owner?.full_name || board.owner?.username }}
                                 </p>
@@ -640,14 +624,10 @@ watch(userId, (newId) => {
         <SettingsModal :isOpen="isSettingsOpen" :isDarkMode="isDarkMode" @close="isSettingsOpen = false"
             @toggle-dark-mode="toggleDarkMode" />
 
-        <!-- Collaborators Modal -->
-        <CollaboratorsModal :isOpen="isCollaboratorsOpen" :isDarkMode="isDarkMode" :user="user"
-            @close="isCollaboratorsOpen = false" />
-
         <!-- Board Collaborators Modal -->
         <BoardCollaboratorsModal :isOpen="isBoardCollaboratorsOpen" :isDarkMode="isDarkMode"
             :boardId="collaboratingBoardId" :userId="user?.id || ''" :isOwner="collaboratingBoardOwnerId === user?.id"
-            @close="isBoardCollaboratorsOpen = false" />
+            :ownerId="collaboratingBoardOwnerId" @close="isBoardCollaboratorsOpen = false" />
 
         <!-- Create Modal -->
         <Transition name="modal">
@@ -671,7 +651,7 @@ watch(userId, (newId) => {
                             Cancel
                         </button>
                         <button @click="createBoard" :disabled="!newBoardName.trim() || creating"
-                            class="flex-1 py-3 rounded-xl font-semibold text-white bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-400 hover:to-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all">
+                            class="flex-1 py-3 rounded-xl font-semibold text-white bg-linear-to-r from-blue-500 to-blue-600 hover:from-blue-400 hover:to-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all">
                             {{ creating ? 'Creating...' : 'Create' }}
                         </button>
                     </div>
@@ -716,7 +696,7 @@ watch(userId, (newId) => {
                             Cancel
                         </button>
                         <button @click="saveEdit" :disabled="!editingBoardName.trim()"
-                            class="flex-1 py-3 rounded-xl font-semibold text-white bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-400 hover:to-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all">
+                            class="flex-1 py-3 rounded-xl font-semibold text-white bg-linear-to-r from-blue-500 to-blue-600 hover:from-blue-400 hover:to-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all">
                             Save
                         </button>
                     </div>
@@ -750,7 +730,7 @@ watch(userId, (newId) => {
                             Cancel
                         </button>
                         <button @click="deleteBoard"
-                            class="flex-1 py-3 rounded-xl font-semibold text-white bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-400 hover:to-rose-500 transition-all">
+                            class="flex-1 py-3 rounded-xl font-semibold text-white bg-linear-to-r from-red-500 to-rose-600 hover:from-red-400 hover:to-rose-500 transition-all">
                             Delete
                         </button>
                     </div>
@@ -784,7 +764,7 @@ watch(userId, (newId) => {
                             Cancel
                         </button>
                         <button @click="leaveBoard"
-                            class="flex-1 py-3 rounded-xl font-semibold text-white bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 transition-all">
+                            class="flex-1 py-3 rounded-xl font-semibold text-white bg-linear-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 transition-all">
                             Leave
                         </button>
                     </div>

@@ -13,7 +13,7 @@ import type { Board } from './boards.service';
 
 @Controller('boards')
 export class BoardsController {
-  constructor(private readonly boardsService: BoardsService) { }
+  constructor(private readonly boardsService: BoardsService) {}
 
   @Get()
   findAll(@Query('userId') userId?: string): Promise<Board[]> {
