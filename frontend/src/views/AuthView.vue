@@ -2,7 +2,7 @@
     <div class="min-h-screen w-full flex items-center justify-center overflow-hidden relative auth-page">
         <!-- Animated Gradient Background -->
         <div class="absolute inset-0 z-0">
-            <div class="absolute inset-0 bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950" />
+            <div class="absolute inset-0 bg-linear-to-br from-slate-950 via-slate-900 to-indigo-950" />
             <!-- Floating orbs -->
             <div class="orb orb-1" />
             <div class="orb orb-2" />
@@ -13,15 +13,8 @@
         <div class="relative z-10 w-full max-w-[400px] mx-4">
             <!-- Logo / Brand -->
             <div class="text-center mb-8">
-                <div class="inline-flex items-center gap-3 mb-4">
-                    <div
-                        class="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-400 flex items-center justify-center shadow-lg shadow-blue-500/30">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-white" viewBox="0 0 20 20"
-                            fill="currentColor">
-                            <path
-                                d="M5 3a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2V5a2 2 0 00-2-2H5zM5 11a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2v-2a2 2 0 00-2-2H5zM11 5a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V5zM14 11a1 1 0 011 1v1h1a1 1 0 110 2h-1v1a1 1 0 11-2 0v-1h-1a1 1 0 110-2h1v-1a1 1 0 011-1z" />
-                        </svg>
-                    </div>
+                <div class="inline-flex items-center gap-2 mb-4">
+                    <img src="/EpiTrello-Logo.png" alt="EpiTrello Logo" class="w-8 h-8" />
                     <span class="text-2xl font-bold text-white">EpiTrello</span>
                 </div>
                 <p class="text-slate-500 text-sm">Organize your work, amplify your productivity</p>
@@ -30,7 +23,7 @@
             <!-- Card -->
             <div class="animate-fade-in-up">
                 <div
-                    class="absolute -inset-1 bg-gradient-to-r from-blue-600/20 via-cyan-500/20 to-blue-600/20 rounded-2xl blur-xl opacity-70" />
+                    class="absolute -inset-1 bg-linear-to-r from-blue-600/20 via-cyan-500/20 to-blue-600/20 rounded-2xl blur-xl opacity-70" />
 
                 <div class="relative glass-card rounded-xl p-6">
                     <!-- Welcome Text -->
@@ -46,12 +39,12 @@
                     <div class="flex justify-center mb-5">
                         <div class="inline-flex p-1 rounded-full bg-slate-800/60 border border-slate-700/50">
                             <button type="button" @click="isLogin = true"
-                                :class="isLogin ? 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white shadow-lg' : 'text-slate-400 hover:text-slate-200'"
+                                :class="isLogin ? 'bg-linear-to-r from-blue-500 to-cyan-500 text-white shadow-lg' : 'text-slate-400 hover:text-slate-200'"
                                 class="px-8 py-1.5 rounded-full text-sm font-medium transition-all duration-300">
                                 Sign In
                             </button>
                             <button type="button" @click="isLogin = false"
-                                :class="!isLogin ? 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white shadow-lg' : 'text-slate-400 hover:text-slate-200'"
+                                :class="!isLogin ? 'bg-linear-to-r from-blue-500 to-cyan-500 text-white shadow-lg' : 'text-slate-400 hover:text-slate-200'"
                                 class="px-8 py-1.5 rounded-full text-sm font-medium transition-all duration-300">
                                 Sign Up
                             </button>
@@ -185,7 +178,7 @@
                                 {{ loading ? 'Please wait...' : (isLogin ? 'Continue' : 'Create Account') }}
                             </span>
                             <div
-                                class="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700" />
+                                class="absolute inset-0 bg-linear-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700" />
                         </button>
                     </form>
                 </div>

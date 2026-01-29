@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, watch, computed } from 'vue'
-import { notificationsApi, friendsApi } from '@/services/api'
+import { notificationsApi, usersApi } from '@/services/api'
 import type { Notification, User, UserProfile } from '@/services/api'
 
 const props = defineProps<{
@@ -12,7 +12,6 @@ const props = defineProps<{
 const emit = defineEmits<{
     (e: 'close'): void
     (e: 'update-count', count: number): void
-    (e: 'open-collaborators'): void
 }>()
 
 const notifications = ref<Notification[]>([])
@@ -37,8 +36,6 @@ async function loadNotifications() {
         // Load user profiles for notifications
         const userIds = new Set<string>()
         notifications.value.forEach(n => {
-            if (n.data.from_user_id) userIds.add(n.data.from_user_id as string)
-            if (n.data.friend_id) userIds.add(n.data.friend_id as string)
             if (n.data.invited_by) userIds.add(n.data.invited_by as string)
             if (n.data.removed_by) userIds.add(n.data.removed_by as string)
         })
@@ -48,9 +45,8 @@ async function loadNotifications() {
             for (const id of userIds) {
                 if (!userProfiles.value.has(id)) {
                     try {
-                        const results = await friendsApi.search(id, userId.value)
-                        const found = results.find(u => u.id === id)
-                        if (found) userProfiles.value.set(id, found)
+                        const profile = await usersApi.getProfile(id)
+                        if (profile) userProfiles.value.set(id, profile)
                     } catch {
                         // Ignore errors for individual profile fetches
                     }
@@ -99,20 +95,8 @@ async function deleteNotification(notificationId: string) {
 }
 
 function getNotificationMessage(notification: Notification): string {
-    const fromUserId = notification.data.from_user_id as string
-    const friendId = notification.data.friend_id as string
-    const profile = userProfiles.value.get(fromUserId || friendId)
-    const name = profile?.full_name || profile?.username || 'Someone'
-
     switch (notification.type) {
-        case 'friend_request':
-            return `${name} sent you a friend request`
-        case 'friend_accepted':
-            return `${name} accepted your friend request`
-        case 'friend_rejected':
-            return `${name} declined your friend request`
         case 'board_invite':
-            // Try to get name from profile, otherwise from data
             const inviterId = notification.data.invited_by as string
             const inviterProfile = userProfiles.value.get(inviterId)
             const inviterName = inviterProfile?.full_name || inviterProfile?.username || notification.data.inviter_name || 'Someone'
@@ -145,10 +129,6 @@ function getTimeAgo(dateString: string): string {
 function handleNotificationClick(notification: Notification) {
     if (!notification.read) {
         markAsRead(notification.id)
-    }
-    if (notification.type === 'friend_request') {
-        emit('close')
-        emit('open-collaborators')
     }
 }
 </script>
@@ -191,14 +171,9 @@ function handleNotificationClick(notification: Notification) {
                         :style="{ borderColor: isDarkMode ? 'rgb(51 65 85 / 0.5)' : 'rgb(226 232 240)' }">
                         <div class="flex items-start gap-3">
                             <!-- Icon -->
-                            <div :class="notification.type === 'friend_request' || notification.type === 'board_invite' ? 'bg-cyan-500/20 text-cyan-400' : (notification.type === 'board_removed' ? 'bg-red-500/20 text-red-400' : 'bg-emerald-500/20 text-emerald-400')"
-                                class="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0">
-                                <svg v-if="notification.type === 'friend_request'" xmlns="http://www.w3.org/2000/svg"
-                                    class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                                    <path
-                                        d="M8 9a3 3 0 100-6 3 3 0 000 6zM8 11a6 6 0 016 6H2a6 6 0 016-6zM16 7a1 1 0 10-2 0v1h-1a1 1 0 100 2h1v1a1 1 0 102 0v-1h1a1 1 0 100-2h-1V7z" />
-                                </svg>
-                                <svg v-else-if="notification.type === 'board_invite'" class="h-4 w-4" fill="none"
+                            <div :class="notification.type === 'board_invite' ? 'bg-cyan-500/20 text-cyan-400' : (notification.type === 'board_removed' ? 'bg-red-500/20 text-red-400' : 'bg-emerald-500/20 text-emerald-400')"
+                                class="w-8 h-8 rounded-full flex items-center justify-center shrink-0">
+                                <svg v-if="notification.type === 'board_invite'" class="h-4 w-4" fill="none"
                                     stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                         d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
@@ -228,12 +203,12 @@ function handleNotificationClick(notification: Notification) {
 
                             <!-- Unread dot -->
                             <div v-if="!notification.read"
-                                class="w-2 h-2 rounded-full bg-cyan-500 flex-shrink-0 mt-1.5" />
+                                class="w-2 h-2 rounded-full bg-cyan-500 shrink-0 mt-1.5" />
 
                             <!-- Delete button -->
                             <button @click.stop="deleteNotification(notification.id)"
                                 :class="isDarkMode ? 'text-slate-500 hover:text-slate-300' : 'text-slate-400 hover:text-slate-600'"
-                                class="p-1 rounded transition-colors flex-shrink-0">
+                                class="p-1 rounded transition-colors shrink-0">
                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20"
                                     fill="currentColor">
                                     <path fill-rule="evenodd"

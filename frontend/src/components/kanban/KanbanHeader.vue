@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { User } from '@/services/api'
 import BrandLogo from '@/components/BrandLogo.vue'
+import UserAvatar from '@/components/ui/UserAvatar.vue'
 
 defineProps<{
     isDarkMode: boolean
@@ -13,7 +14,6 @@ defineProps<{
 const emit = defineEmits<{
     (e: 'toggle-dark-mode'): void
     (e: 'open-settings'): void
-    (e: 'open-collaborators'): void
     (e: 'open-board-collaborators'): void
     (e: 'open-notifications'): void
     (e: 'go-to-dashboard'): void
@@ -62,22 +62,11 @@ const emit = defineEmits<{
 
         <!-- Header Controls -->
         <div class="flex items-center gap-3">
-            <!-- Board Share Button (only when viewing a board) -->
+            <!-- Board Collaborators Button (only when viewing a board) -->
             <button v-if="boardTitle" @click="emit('open-board-collaborators')"
-                :class="isDarkMode ? 'bg-slate-800 text-emerald-400 hover:text-emerald-300' : 'bg-slate-300 text-emerald-600 hover:text-emerald-500'"
-                class="h-11 w-11 rounded-2xl flex items-center justify-center transition-all duration-300 active:scale-95 focus:outline-none"
-                title="Share Board">
-                <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
-                </svg>
-            </button>
-
-            <!-- Friends Button -->
-            <button @click="emit('open-collaborators')"
                 :class="isDarkMode ? 'bg-slate-800 text-slate-400 hover:text-cyan-400' : 'bg-slate-300 text-slate-500 hover:text-cyan-600'"
                 class="h-11 w-11 rounded-2xl flex items-center justify-center transition-all duration-300 active:scale-95 focus:outline-none"
-                title="Friends">
+                title="Board Collaborators">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                     <path
                         d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z" />
@@ -95,7 +84,7 @@ const emit = defineEmits<{
                 </svg>
                 <!-- Badge -->
                 <span v-if="notificationCount > 0"
-                    class="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-gradient-to-r from-cyan-500 to-blue-500 text-white text-[10px] font-bold flex items-center justify-center shadow-lg">
+                    class="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-linear-to-r from-cyan-500 to-blue-500 text-white text-[10px] font-bold flex items-center justify-center shadow-lg">
                     {{ notificationCount > 9 ? '9+' : notificationCount }}
                 </span>
             </button>
@@ -103,12 +92,11 @@ const emit = defineEmits<{
             <!-- Settings Button -->
             <button @click="emit('open-settings')"
                 :class="isDarkMode ? 'bg-slate-800 text-slate-400 hover:text-slate-200' : 'bg-slate-300 text-slate-500 hover:text-blue-500'"
-                class="h-11 w-11 rounded-2xl flex items-center justify-center transition-all duration-300 active:scale-95 group focus:outline-none">
-                <div v-if="user?.user_metadata?.avatar_url"
-                    class="h-full w-full rounded-xl overflow-hidden ring-0 group-hover:opacity-90 transition-all p-0.5">
-                    <img :src="user.user_metadata.avatar_url" alt="User"
-                        class="h-full w-full object-cover rounded-[10px]" />
-                </div>
+                class="h-11 w-11 rounded-2xl flex items-center justify-center transition-all duration-300 active:scale-95 group focus:outline-none overflow-hidden">
+                <UserAvatar
+                    v-if="user?.user_metadata?.avatar_url || user?.user_metadata?.full_name || user?.user_metadata?.username"
+                    :avatarUrl="user?.user_metadata?.avatar_url"
+                    :name="user?.user_metadata?.full_name || user?.user_metadata?.username || user?.email" size="lg" />
                 <svg v-else xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none"
                     stroke="currentColor" stroke-width="1.5">
                     <path stroke-linecap="round" stroke-linejoin="round"

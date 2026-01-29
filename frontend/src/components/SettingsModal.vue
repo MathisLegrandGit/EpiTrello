@@ -7,18 +7,18 @@
         <div class="relative w-full max-w-[400px] animate-fade-in-up">
             <!-- Glow effect -->
             <div
-                class="absolute -inset-1 bg-gradient-to-r from-blue-600/20 via-cyan-500/20 to-blue-600/20 rounded-2xl blur-xl opacity-70" />
+                class="absolute -inset-1 bg-linear-to-r from-blue-600/20 via-cyan-500/20 to-blue-600/20 rounded-2xl blur-xl opacity-70" />
 
             <div class="relative glass-card rounded-xl overflow-hidden">
                 <!-- Header with user info -->
                 <div class="p-5 flex items-center gap-4">
                     <!-- Avatar (display only) -->
                     <div v-if="avatarUrl"
-                        class="w-12 h-12 rounded-full overflow-hidden shadow-lg shadow-blue-500/30 flex-shrink-0">
+                        class="w-12 h-12 rounded-full overflow-hidden shadow-lg shadow-blue-500/30 shrink-0">
                         <img :src="avatarUrl" alt="Avatar" class="w-full h-full object-cover" />
                     </div>
                     <div v-else
-                        class="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-cyan-400 flex items-center justify-center text-lg font-bold text-white shadow-lg shadow-blue-500/30 flex-shrink-0">
+                        class="w-12 h-12 rounded-full bg-linear-to-br from-blue-500 to-cyan-400 flex items-center justify-center text-lg font-bold text-white shadow-lg shadow-blue-500/30 shrink-0">
                         {{ getUserInitials() }}
                     </div>
                     <div class="flex-1 min-w-0">
@@ -90,7 +90,7 @@
                                         <img :src="avatarUrl" alt="Avatar" class="w-full h-full object-cover" />
                                     </div>
                                     <div v-else
-                                        class="w-14 h-14 rounded-full bg-gradient-to-br from-blue-500 to-cyan-400 flex items-center justify-center text-xl font-bold text-white">
+                                        class="w-14 h-14 rounded-full bg-linear-to-br from-blue-500 to-cyan-400 flex items-center justify-center text-xl font-bold text-white">
                                         {{ getUserInitials() }}
                                     </div>
                                 </div>

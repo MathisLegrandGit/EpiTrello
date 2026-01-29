@@ -80,11 +80,11 @@ function saveTitle() {
 <template>
     <div :data-column-id="column.id"
         :class="isDarkMode ? 'bg-slate-800/50 border-slate-700/50 backdrop-blur-sm' : 'bg-slate-100 border-slate-300 backdrop-blur-sm'"
-        class="flex flex-col rounded-2xl p-5 border shadow-sm min-w-[320px] flex-shrink-0 transition-all duration-200 hover:shadow-md animate-slide-up">
+        class="flex flex-col rounded-2xl p-5 border shadow-sm min-w-[320px] shrink-0 transition-all duration-200 hover:shadow-md animate-slide-up">
         <!-- Column Header -->
         <div class="mb-4 flex items-center justify-between">
             <div class="flex items-center gap-3 min-w-0">
-                <div class="w-3 h-3 rounded-full shadow-sm flex-shrink-0"
+                <div class="w-3 h-3 rounded-full shadow-sm shrink-0"
                     :style="{ backgroundColor: column.color || '#64748b' }" />
 
                 <!-- Inline title editing with width matching -->
@@ -105,7 +105,7 @@ function saveTitle() {
                 </span>
 
                 <span :class="isDarkMode ? 'text-slate-400 bg-slate-700/60' : 'text-slate-600 bg-slate-200'"
-                    class="text-xs font-medium rounded-full px-2.5 py-1 flex-shrink-0">
+                    class="text-xs font-medium rounded-full px-2.5 py-1 shrink-0">
                     {{ column.cards.length }}
                 </span>
             </div>

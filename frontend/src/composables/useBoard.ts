@@ -25,6 +25,10 @@ export function useBoard() {
         try {
             isLoading.value = true
             error.value = null
+            
+            // Clear stale data immediately to prevent showing wrong board's content
+            columns.value = []
+            labels.value = []
 
             if (!user.value) return
 
@@ -186,7 +190,7 @@ export function useBoard() {
         }
     }
 
-    async function updateCard(cardId: string, updates: { title?: string; description?: string; label_ids?: string[]; list_id?: string; position?: number }) {
+    async function updateCard(cardId: string, updates: { title?: string; description?: string; label_ids?: string[]; member_ids?: string[]; list_id?: string; position?: number }) {
         try {
             const updatedCard = await cardsApi.update(cardId, updates)
 
