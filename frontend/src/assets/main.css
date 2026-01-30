@@ -24,7 +24,14 @@
   --radius: 0.75rem;
 }
 
-* {
+/* Only apply border color to elements that explicitly have border-width set via Tailwind classes */
+.border,
+.border-t,
+.border-b,
+.border-l,
+.border-r,
+.border-x,
+.border-y {
   @apply border-border;
 }
 

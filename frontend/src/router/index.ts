@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import LandingView from '../views/landing/LandingView.vue'
 import DashboardView from '../views/DashboardView.vue'
 import KanbanView from '../views/KanbanView.vue'
 import AuthView from '../views/AuthView.vue'
@@ -9,7 +10,8 @@ const router = createRouter({
   routes: [
     {
       path: '/',
-      redirect: '/dashboard'
+      name: 'landing',
+      component: LandingView
     },
     {
       path: '/dashboard',

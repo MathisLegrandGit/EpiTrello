@@ -14,7 +14,7 @@
             <!-- Logo / Brand -->
             <div class="text-center mb-8">
                 <div class="inline-flex items-center gap-2 mb-4">
-                    <img src="/EpiTrello-Logo.png" alt="EpiTrello Logo" class="w-8 h-8" />
+                    <img src="/EpiTrello%20Logo.png" alt="EpiTrello Logo" class="w-8 h-8" />
                     <span class="text-2xl font-bold text-white">EpiTrello</span>
                 </div>
                 <p class="text-slate-500 text-sm">Organize your work, amplify your productivity</p>
@@ -198,15 +198,24 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
 import { useAuth } from '@/composables/useAuth'
 import PasswordInput from '@/components/PasswordInput.vue'
 
+const route = useRoute()
 const { login, signup, loading, error } = useAuth()
 
 const isLogin = ref(true)
 const isPasswordValid = ref(false)
 const showPassword = ref(false)
+
+// Check for register=true query param on mount
+onMounted(() => {
+    if (route.query.register === 'true') {
+        isLogin.value = false
+    }
+})
 
 const form = reactive({
     email: '',

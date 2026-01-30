@@ -1,6 +1,6 @@
 <template>
     <div class="inline-flex items-center gap-3">
-        <img src="/EpiTrello-Logo.png" alt="EpiTrello Logo" :class="sizeClasses" />
+        <img src="/EpiTrello%20Logo.png" alt="EpiTrello Logo" :class="sizeClasses" />
         <span v-if="showText"
             :class="['font-bold tracking-tight', textClasses, isDarkMode ? 'text-white' : 'text-slate-800']">EpiTrello</span>
     </div>
