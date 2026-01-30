@@ -52,7 +52,7 @@ export function useAuth() {
         try {
             const response = await authApi.login(credentials)
             handleAuthResponse(response)
-            router.push('/')
+            router.push('/dashboard')
         } catch (err: unknown) {
             error.value = err instanceof Error ? err.message : 'Login failed'
             throw err
@@ -67,7 +67,7 @@ export function useAuth() {
         try {
             const response = await authApi.signup(credentials)
             handleAuthResponse(response)
-            router.push('/')
+            router.push('/dashboard')
         } catch (err: unknown) {
             error.value = err instanceof Error ? err.message : 'Signup failed'
             throw err
