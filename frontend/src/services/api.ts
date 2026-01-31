@@ -8,15 +8,27 @@ export interface CardMember {
     avatar_url?: string;
 }
 
+export interface CardAttachment {
+    id: string;
+    card_id: string;
+    file_name: string;
+    file_url: string;
+    file_type: string;
+    file_size: number;
+    created_at?: string;
+}
+
 export interface Card {
     id?: string;
     list_id: string;
     title: string;
     description?: string;
     position: number;
+    due_date?: string | null;
     label_ids?: string[];
     member_ids?: string[];
     members?: CardMember[];
+    attachments?: CardAttachment[];
     created_at?: string;
     updated_at?: string;
 }
@@ -90,9 +102,9 @@ function getAccessToken(): string | null {
     const cookieValue = document.cookie
         .split('; ')
         .find(row => row.startsWith('supabase_session='));
-    
+
     if (!cookieValue) return null;
-    
+
     try {
         const cookieParts = cookieValue.split('=');
         const sessionValue = cookieParts[1];
@@ -178,6 +190,31 @@ export const cardsApi = {
         body: JSON.stringify(card),
     }),
     delete: (id: string) => fetchApi<void>(`/cards/${id}`, { method: 'DELETE' }),
+
+    // Attachment methods
+    getAttachments: (cardId: string) => fetchApi<CardAttachment[]>(`/cards/${cardId}/attachments`),
+    addAttachment: async (cardId: string, file: File): Promise<CardAttachment> => {
+        const formData = new FormData();
+        formData.append('file', file);
+
+        const accessToken = getAccessToken();
+        const headers: Record<string, string> = {};
+        if (accessToken) {
+            headers['Authorization'] = `Bearer ${accessToken}`;
+        }
+
+        const response = await fetch(`${API_BASE_URL}/cards/${cardId}/attachments`, {
+            method: 'POST',
+            headers,
+            body: formData,
+        });
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.message || 'Failed to upload attachment');
+        }
+        return response.json();
+    },
+    removeAttachment: (attachmentId: string) => fetchApi<void>(`/cards/attachments/${attachmentId}`, { method: 'DELETE' }),
 };
 
 // Labels API
@@ -217,14 +254,14 @@ export const authApi = {
     uploadAvatar: async (userId: string, file: File): Promise<string> => {
         const formData = new FormData();
         formData.append('avatar', file);
-        
+
         // Add Authorization header if available
         const accessToken = getAccessToken();
         const headers: Record<string, string> = {};
         if (accessToken) {
             headers['Authorization'] = `Bearer ${accessToken}`;
         }
-        
+
         const response = await fetch(`${API_BASE_URL}/auth/avatar/${userId}`, {
             method: 'POST',
             headers,

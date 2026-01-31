@@ -32,31 +32,32 @@ export class ListsService {
   }
 
   async findOne(id: string): Promise<List> {
-    const { data, error } = await this.supabaseService
+    const response = await this.supabaseService
       .getAdminClient()
       .from('lists')
       .select('*')
       .eq('id', id)
       .single();
 
-    if (error) throw new NotFoundException(`List with ID ${id} not found`);
-    return data as List;
+    if (response.error)
+      throw new NotFoundException(`List with ID ${id} not found`);
+    return response.data as List;
   }
 
   async create(list: List): Promise<List> {
-    const { data, error } = await this.supabaseService
+    const response = await this.supabaseService
       .getAdminClient()
       .from('lists')
       .insert(list)
       .select()
       .single();
 
-    if (error) throw error;
-    return data as List;
+    if (response.error) throw response.error;
+    return response.data as List;
   }
 
   async update(id: string, list: Partial<List>): Promise<List> {
-    const { data, error } = await this.supabaseService
+    const response = await this.supabaseService
       .getAdminClient()
       .from('lists')
       .update(list)
@@ -64,8 +65,9 @@ export class ListsService {
       .select()
       .single();
 
-    if (error) throw new NotFoundException(`List with ID ${id} not found`);
-    return data as List;
+    if (response.error)
+      throw new NotFoundException(`List with ID ${id} not found`);
+    return response.data as List;
   }
 
   async remove(id: string): Promise<void> {

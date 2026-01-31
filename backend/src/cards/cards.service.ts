@@ -8,15 +8,27 @@ export interface CardMember {
   avatar_url?: string;
 }
 
+export interface CardAttachment {
+  id: string;
+  card_id: string;
+  file_name: string;
+  file_url: string;
+  file_type: string;
+  file_size: number;
+  created_at?: string;
+}
+
 export interface Card {
   id?: string;
   list_id: string;
   title: string;
   description?: string;
   position: number;
+  due_date?: string;
   label_ids?: string[];
   member_ids?: string[];
   members?: CardMember[];
+  attachments?: CardAttachment[];
   created_at?: string;
   updated_at?: string;
 }
@@ -73,13 +85,25 @@ export class CardsService {
       profiles = (profileData as CardMember[]) || [];
     }
 
-    // Map label_ids and members to each card
+    // Fetch attachments for all cards
+    const { data: attachments } = await this.supabaseService
+      .getAdminClient()
+      .from('card_attachments')
+      .select('*')
+      .in('card_id', cardIds)
+      .order('created_at', { ascending: true });
+
+    // Map label_ids, members, and attachments to each card
     return (cards as Card[]).map((card) => {
       const memberIds =
         (cardMembers as { card_id: string; user_id: string }[] | null)
           ?.filter((cm) => cm.card_id === card.id)
           .map((cm) => cm.user_id) || [];
       const members = profiles.filter((p) => memberIds.includes(p.id));
+      const cardAttachments =
+        (attachments as CardAttachment[] | null)?.filter(
+          (a) => a.card_id === card.id,
+        ) || [];
 
       return {
         ...card,
@@ -89,19 +113,22 @@ export class CardsService {
             .map((cl) => cl.label_id) || [],
         member_ids: memberIds,
         members,
+        attachments: cardAttachments,
       };
     });
   }
 
   async findOne(id: string): Promise<Card> {
-    const { data, error } = await this.supabaseService
+    const response = await this.supabaseService
       .getAdminClient()
       .from('cards')
       .select('*')
       .eq('id', id)
       .single();
 
-    if (error) throw new NotFoundException(`Card with ID ${id} not found`);
+    if (response.error)
+      throw new NotFoundException(`Card with ID ${id} not found`);
+    const data = response.data as Card;
 
     // Fetch label_ids
     const { data: cardLabels } = await this.supabaseService
@@ -130,30 +157,47 @@ export class CardsService {
       members = (profiles as CardMember[]) || [];
     }
 
+    // Fetch attachments
+    const { data: attachments } = await this.supabaseService
+      .getAdminClient()
+      .from('card_attachments')
+      .select('*')
+      .eq('card_id', id)
+      .order('created_at', { ascending: true });
+
     return {
-      ...(data as Card),
+      ...data,
       label_ids:
         (cardLabels as { label_id: string }[] | null)?.map(
           (cl) => cl.label_id,
         ) || [],
       member_ids: memberIds,
       members,
+      attachments: (attachments as CardAttachment[]) || [],
     };
   }
 
   async create(card: Card): Promise<Card> {
-    const { label_ids, member_ids, ...cardData } = card;
+    // Extract label_ids, member_ids, and exclude attachments from cardData
+    const {
+      label_ids,
+      member_ids,
+      members: _,
+      attachments: __,
+      ...cardData
+    } = card;
 
-    const { data, error } = await this.supabaseService
+    const response = await this.supabaseService
       .getAdminClient()
       .from('cards')
       .insert(cardData)
       .select()
       .single();
 
-    if (error) throw error;
+    if (response.error) throw response.error;
+    const data = response.data as Card & { id: string };
 
-    const cardId = (data as { id: string }).id;
+    const cardId = data.id;
 
     // Add labels if provided
     if (label_ids && label_ids.length > 0) {
@@ -179,13 +223,21 @@ export class CardsService {
       ...(data as Card),
       label_ids: label_ids || [],
       member_ids: member_ids || [],
+      attachments: [],
     };
   }
 
   async update(id: string, card: Partial<Card>): Promise<Card> {
-    const { label_ids, member_ids, ...cardData } = card;
+    // Extract label_ids, member_ids, and exclude members/attachments from cardData
+    const {
+      label_ids,
+      member_ids,
+      members: _,
+      attachments: __,
+      ...cardData
+    } = card;
 
-    // Update card fields (excluding label_ids, member_ids, members)
+    // Update card fields (excluding label_ids, member_ids, members, attachments)
     if (Object.keys(cardData).length > 0) {
       const { error } = await this.supabaseService
         .getAdminClient()
@@ -288,5 +340,94 @@ export class CardsService {
       .eq('user_id', userId);
 
     if (error) throw error;
+  }
+
+  // Attachment methods
+  async addAttachment(
+    cardId: string,
+    file: Express.Multer.File,
+  ): Promise<CardAttachment> {
+    const supabase = this.supabaseService.getAdminClient();
+    const fileName = `${cardId}/${Date.now()}-${file.originalname}`;
+
+    // Upload file to Supabase Storage
+    const { error: uploadError } = await supabase.storage
+      .from('card-attachments')
+      .upload(fileName, file.buffer, {
+        contentType: file.mimetype,
+        upsert: false,
+      });
+
+    if (uploadError) throw uploadError;
+
+    // Get public URL
+    const {
+      data: { publicUrl },
+    } = supabase.storage.from('card-attachments').getPublicUrl(fileName);
+
+    // Insert attachment record
+    const insertResponse = await supabase
+      .from('card_attachments')
+      .insert({
+        card_id: cardId,
+        file_name: file.originalname,
+        file_url: publicUrl,
+        file_type: file.mimetype,
+        file_size: file.size,
+      })
+      .select()
+      .single();
+
+    if (insertResponse.error) throw insertResponse.error;
+
+    return insertResponse.data as CardAttachment;
+  }
+
+  async removeAttachment(attachmentId: string): Promise<void> {
+    const supabase = this.supabaseService.getAdminClient();
+
+    // Get attachment to find the file path
+    const fetchResponse = await supabase
+      .from('card_attachments')
+      .select('*')
+      .eq('id', attachmentId)
+      .single();
+
+    if (fetchResponse.error)
+      throw new NotFoundException(
+        `Attachment with ID ${attachmentId} not found`,
+      );
+
+    const attachment = fetchResponse.data as CardAttachment;
+
+    // Extract file path from URL
+    const fileUrl = attachment.file_url;
+    const filePath = fileUrl.split('/card-attachments/')[1];
+
+    if (filePath) {
+      // Delete from storage
+      await supabase.storage.from('card-attachments').remove([filePath]);
+    }
+
+    // Delete attachment record
+    const { error } = await supabase
+      .from('card_attachments')
+      .delete()
+      .eq('id', attachmentId);
+
+    if (error) throw error;
+  }
+
+  async getAttachments(cardId: string): Promise<CardAttachment[]> {
+    const { data, error } = await this.supabaseService
+      .getAdminClient()
+      .from('card_attachments')
+      .select('*')
+      .eq('card_id', cardId)
+      .order('created_at', { ascending: true });
+
+    if (error) throw error;
+
+    return (data as CardAttachment[]) || [];
   }
 }

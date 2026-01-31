@@ -47,18 +47,19 @@ export class BoardsService {
   }
 
   async findOne(id: string): Promise<Board> {
-    const { data, error } = await this.getClient()
+    const response = await this.getClient()
       .from('boards')
       .select('*')
       .eq('id', id)
       .single();
 
-    if (error) throw new NotFoundException(`Board with ID ${id} not found`);
+    if (response.error)
+      throw new NotFoundException(`Board with ID ${id} not found`);
 
     // Update last_opened_at when board is accessed
     await this.updateLastOpened(id);
 
-    return data as Board;
+    return response.data as Board;
   }
 
   async updateLastOpened(id: string): Promise<void> {
@@ -70,13 +71,14 @@ export class BoardsService {
 
   async create(board: Board): Promise<Board> {
     const client = this.getClient();
-    const { data, error } = await client
+    const response = await client
       .from('boards')
       .insert(board)
       .select()
       .single();
 
-    if (error) throw new Error(error.message);
+    if (response.error) throw new Error(response.error.message);
+    const data = response.data as Board & { id: string };
 
     // Create default columns for the new board
     const defaultLists = [
@@ -85,7 +87,7 @@ export class BoardsService {
       { title: 'Done', position: 2, color: '#22c55e' },
     ];
 
-    const boardId = (data as { id: string }).id;
+    const boardId = data.id;
     for (const list of defaultLists) {
       await client.from('lists').insert({
         board_id: boardId,
@@ -95,19 +97,20 @@ export class BoardsService {
       });
     }
 
-    return data as Board;
+    return data;
   }
 
   async update(id: string, board: Partial<Board>): Promise<Board> {
-    const { data, error } = await this.getClient()
+    const response = await this.getClient()
       .from('boards')
       .update(board)
       .eq('id', id)
       .select()
       .single();
 
-    if (error) throw new NotFoundException(`Board with ID ${id} not found`);
-    return data as Board;
+    if (response.error)
+      throw new NotFoundException(`Board with ID ${id} not found`);
+    return response.data as Board;
   }
 
   async remove(id: string): Promise<void> {

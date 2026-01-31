@@ -138,7 +138,7 @@ export class AuthService {
     } | null;
 
     // Upsert profiles table (create if doesn't exist, update if it does)
-    const { data, error } = await this.supabaseService
+    const upsertResponse = await this.supabaseService
       .getClient()
       .from('profiles')
       .upsert(
@@ -154,9 +154,17 @@ export class AuthService {
       .select()
       .single();
 
-    if (error) {
-      throw new ConflictException(error.message);
+    if (upsertResponse.error) {
+      throw new ConflictException(upsertResponse.error.message);
     }
+
+    const data = upsertResponse.data as {
+      id: string;
+      username?: string;
+      full_name?: string;
+      avatar_url?: string;
+      updated_at: string;
+    } | null;
 
     return data as {
       id: string;

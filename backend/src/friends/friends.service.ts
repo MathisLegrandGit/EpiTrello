@@ -112,8 +112,17 @@ export class FriendsService {
       return [];
     }
 
+    // Type the data properly
+    type FriendshipRecord = {
+      id: string;
+      user_id: string;
+      friend_id: string;
+      created_at: string;
+    };
+    const typedData = data as FriendshipRecord[];
+
     // Get friend profiles
-    const friendIds = data.map((f) => f.friend_id);
+    const friendIds = typedData.map((f) => f.friend_id);
     const { data: profiles, error: profileError } = await supabase
       .from('profiles')
       .select('id, username, email, full_name, avatar_url')
@@ -125,8 +134,9 @@ export class FriendsService {
     }
 
     // Map profiles to friendships, with fallback for missing profiles
-    const profileMap = new Map(profiles?.map((p) => [p.id, p]) || []);
-    return data.map((friendship) => {
+    const typedProfiles = (profiles || []) as UserProfile[];
+    const profileMap = new Map(typedProfiles.map((p) => [p.id, p]));
+    return typedData.map((friendship) => {
       const profile = profileMap.get(friendship.friend_id);
       return {
         ...friendship,
@@ -135,7 +145,7 @@ export class FriendsService {
           username: 'User',
           email: '',
           full_name: 'Loading...',
-          avatar_url: null,
+          avatar_url: undefined,
         },
       };
     });
@@ -209,14 +219,15 @@ export class FriendsService {
 
     if (reverseRequest) {
       // Auto-accept if they already sent us a request
-      await this.respondToFriendRequest(reverseRequest.id, 'accepted');
+      const typedReverseRequest = reverseRequest as { id: string };
+      await this.respondToFriendRequest(typedReverseRequest.id, 'accepted');
       throw new ConflictException(
         'Pending request from this user exists - automatically accepted',
       );
     }
 
     // Create the friend request
-    const { data, error } = await supabase
+    const insertResponse = await supabase
       .from('friend_requests')
       .insert({
         from_user_id: fromUserId,
@@ -226,9 +237,11 @@ export class FriendsService {
       .select()
       .single();
 
-    if (error) {
-      throw new Error(error.message);
+    if (insertResponse.error) {
+      throw new Error(insertResponse.error.message);
     }
+
+    const data = insertResponse.data as FriendRequest;
 
     // Create notification for recipient
     const adminSupabase = this.supabaseService.getAdminClient();
@@ -265,16 +278,28 @@ export class FriendsService {
       return [];
     }
 
+    // Type the data properly
+    type RequestRecord = {
+      id: string;
+      from_user_id: string;
+      to_user_id: string;
+      status: string;
+      created_at: string;
+    };
+    const typedData = data as RequestRecord[];
+
     // Get sender profiles
-    const senderIds = data.map((r) => r.from_user_id);
+    const senderIds = typedData.map((r) => r.from_user_id);
     const { data: profiles } = await supabase
       .from('profiles')
       .select('id, username, email, full_name, avatar_url')
       .in('id', senderIds);
 
-    const profileMap = new Map(profiles?.map((p) => [p.id, p]) || []);
-    return data.map((request) => ({
+    const typedProfiles = (profiles || []) as UserProfile[];
+    const profileMap = new Map(typedProfiles.map((p) => [p.id, p]));
+    return typedData.map((request) => ({
       ...request,
+      status: request.status as 'pending' | 'accepted' | 'rejected',
       from_user: profileMap.get(request.from_user_id),
     }));
   }
@@ -300,16 +325,28 @@ export class FriendsService {
       return [];
     }
 
+    // Type the data properly
+    type RequestRecord = {
+      id: string;
+      from_user_id: string;
+      to_user_id: string;
+      status: string;
+      created_at: string;
+    };
+    const typedData = data as RequestRecord[];
+
     // Get recipient profiles
-    const recipientIds = data.map((r) => r.to_user_id);
+    const recipientIds = typedData.map((r) => r.to_user_id);
     const { data: profiles } = await supabase
       .from('profiles')
       .select('id, username, email, full_name, avatar_url')
       .in('id', recipientIds);
 
-    const profileMap = new Map(profiles?.map((p) => [p.id, p]) || []);
-    return data.map((request) => ({
+    const typedProfiles = (profiles || []) as UserProfile[];
+    const profileMap = new Map(typedProfiles.map((p) => [p.id, p]));
+    return typedData.map((request) => ({
       ...request,
+      status: request.status as 'pending' | 'accepted' | 'rejected',
       to_user: profileMap.get(request.to_user_id),
     }));
   }
@@ -324,15 +361,17 @@ export class FriendsService {
     const supabase = this.supabaseService.getClient();
 
     // Get the request
-    const { data: request, error: fetchError } = await supabase
+    const fetchResponse = await supabase
       .from('friend_requests')
       .select('*')
       .eq('id', requestId)
       .single();
 
-    if (fetchError || !request) {
+    if (fetchResponse.error || !fetchResponse.data) {
       throw new NotFoundException('Friend request not found');
     }
+
+    const request = fetchResponse.data as FriendRequest;
 
     if (request.status !== 'pending') {
       throw new ConflictException('Request already processed');
@@ -374,13 +413,13 @@ export class FriendsService {
     }
 
     // Return updated request
-    const { data: updated } = await supabase
+    const updatedResponse = await supabase
       .from('friend_requests')
       .select('*')
       .eq('id', requestId)
       .single();
 
-    return updated;
+    return updatedResponse.data as FriendRequest;
   }
 
   /**
@@ -424,7 +463,7 @@ export class FriendsService {
       throw new Error(error.message);
     }
 
-    return data || [];
+    return (data || []) as Notification[];
   }
 
   /**
@@ -452,18 +491,18 @@ export class FriendsService {
   async markNotificationRead(notificationId: string): Promise<Notification> {
     const supabase = this.supabaseService.getClient();
 
-    const { data, error } = await supabase
+    const response = await supabase
       .from('notifications')
       .update({ read: true })
       .eq('id', notificationId)
       .select()
       .single();
 
-    if (error) {
+    if (response.error) {
       throw new NotFoundException('Notification not found');
     }
 
-    return data;
+    return response.data as Notification;
   }
 
   /**

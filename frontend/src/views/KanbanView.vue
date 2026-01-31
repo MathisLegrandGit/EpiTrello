@@ -135,7 +135,7 @@ function openCardDetail(card: Card, columnId: string) {
   isCardDetailOpen.value = true
 }
 
-async function handleCardSave(data: { title: string; description: string; labelIds: string[]; memberIds: string[] }) {
+async function handleCardSave(data: { title: string; description: string; labelIds: string[]; memberIds: string[]; dueDate: string | null }) {
   if (!selectedCard.value || !selectedCardColumnId.value) return
 
   try {
@@ -144,6 +144,7 @@ async function handleCardSave(data: { title: string; description: string; labelI
       description: data.description,
       label_ids: data.labelIds,
       member_ids: data.memberIds,
+      due_date: data.dueDate,
     })
 
     // Update in columns
@@ -154,6 +155,33 @@ async function handleCardSave(data: { title: string; description: string; labelI
     }
 
     closeCardDetail()
+  } catch (err) {
+    console.error('Error saving card:', err)
+  }
+}
+
+// Save card without closing the modal (for date picker changes)
+async function handleCardSaveInBackground(data: { title: string; description: string; labelIds: string[]; memberIds: string[]; dueDate: string | null }) {
+  if (!selectedCard.value || !selectedCardColumnId.value) return
+
+  try {
+    const updatedCard = await updateCard(selectedCard.value.id!, {
+      title: data.title,
+      description: data.description,
+      label_ids: data.labelIds,
+      member_ids: data.memberIds,
+      due_date: data.dueDate,
+    })
+
+    // Update in columns
+    const column = columns.value.find((c) => c.id === selectedCardColumnId.value)
+    const cardIndex = column?.cards.findIndex((c) => c.id === selectedCard.value!.id)
+    if (column && cardIndex !== undefined && cardIndex >= 0) {
+      column.cards[cardIndex] = updatedCard
+    }
+
+    // Update selectedCard so the modal shows the correct data
+    selectedCard.value = updatedCard
   } catch (err) {
     console.error('Error saving card:', err)
   }
@@ -304,7 +332,7 @@ watch(() => route.params.id, async (newId) => {
     boardCollaborators.value = []
     boardOwnerProfile.value = null
     userRole.value = 'viewer'
-    
+
     // Load new board data
     await loadBoardInfo()
     fetchData(newId)
@@ -328,9 +356,8 @@ onUnmounted(() => {
     <div class="relative">
       <KanbanHeader :isDarkMode="isDarkMode" :user="user" :notificationCount="notificationCount"
         :boardTitle="currentBoard?.title" :showBackButton="true" @toggle-dark-mode="toggleDarkMode"
-        @open-settings="isSettingsOpen = true"
-        @open-board-collaborators="isBoardCollaboratorsOpen = true" @open-notifications="openNotifications"
-        @go-to-dashboard="goToDashboard" />
+        @open-settings="isSettingsOpen = true" @open-board-collaborators="isBoardCollaboratorsOpen = true"
+        @open-notifications="openNotifications" @go-to-dashboard="goToDashboard" />
 
       <!-- Notifications Panel (positioned relative to header) -->
       <div class="absolute right-8 top-full z-50">
@@ -390,7 +417,8 @@ onUnmounted(() => {
     <CardDetailModal :isOpen="isCardDetailOpen" :card="selectedCard" :columnTitle="selectedCardColumnTitle"
       :labels="labels" :isDarkMode="isDarkMode" :boardId="currentBoardId" :canEdit="canEdit"
       :boardCollaborators="boardCollaborators" :boardOwner="boardOwnerProfile ?? undefined" @close="closeCardDetail"
-      @save="handleCardSave" @delete="deleteCardFromDetail" @labelCreated="fetchLabels" @refresh="fetchLabels" />
+      @save="handleCardSave" @saveInBackground="handleCardSaveInBackground" @delete="deleteCardFromDetail"
+      @labelCreated="fetchLabels" @refresh="fetchLabels" />
 
     <!-- Settings Modal -->
     <SettingsModal :isOpen="isSettingsOpen" :isDarkMode="isDarkMode" @close="isSettingsOpen = false"
