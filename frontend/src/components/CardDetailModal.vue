@@ -284,7 +284,7 @@ function handleDateConfirmed() {
             <!-- Modal -->
             <div @click.stop="labelDropdownOpen = false; memberDropdownOpen = false; menuOpen = false; activeLabelMenuId = null"
                 :class="isDarkMode ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-200'"
-                class="relative w-full max-w-[26.784rem] mx-4 rounded-2xl border shadow-2xl animate-scale-in max-h-[70vh] overflow-y-auto scale-[1.2]">
+                class="relative w-full max-w-[26.784rem] mx-4 rounded-2xl border shadow-2xl animate-scale-in max-h-[85vh] sm:max-h-[70vh] overflow-y-auto sm:scale-[1.2]">
                 <!-- Header with column indicator -->
                 <div :class="isDarkMode ? 'bg-slate-800/50 border-slate-700' : 'bg-slate-50 border-slate-200'"
                     class="px-5 py-3 border-b flex items-center justify-between rounded-t-2xl">
