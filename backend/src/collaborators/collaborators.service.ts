@@ -117,7 +117,7 @@ export class CollaboratorsService {
     }
 
     // Add collaborator
-    const { data, error } = await supabase
+    const insertResponse = await supabase
       .from('board_collaborators')
       .insert({
         board_id: boardId,
@@ -129,7 +129,8 @@ export class CollaboratorsService {
       .select()
       .single();
 
-    if (error) throw error;
+    if (insertResponse.error) throw insertResponse.error;
+    const data = insertResponse.data as BoardCollaborator;
 
     // Get inviter's profile for notification
     const { data: inviterProfile } = await supabase
@@ -168,7 +169,7 @@ export class CollaboratorsService {
       console.error('Failed to create board_invite notification:', notifError);
     }
 
-    return data as BoardCollaborator;
+    return data;
   }
 
   /**

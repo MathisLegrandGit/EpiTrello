@@ -7,9 +7,12 @@ import {
   Body,
   Param,
   Query,
+  UseInterceptors,
+  UploadedFile,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { CardsService } from './cards.service';
-import type { Card } from './cards.service';
+import type { Card, CardAttachment } from './cards.service';
 
 @Controller('cards')
 export class CardsController {
@@ -38,5 +41,25 @@ export class CardsController {
   @Delete(':id')
   remove(@Param('id') id: string): Promise<void> {
     return this.cardsService.remove(id);
+  }
+
+  // Attachment endpoints
+  @Get(':id/attachments')
+  getAttachments(@Param('id') id: string): Promise<CardAttachment[]> {
+    return this.cardsService.getAttachments(id);
+  }
+
+  @Post(':id/attachments')
+  @UseInterceptors(FileInterceptor('file'))
+  addAttachment(
+    @Param('id') id: string,
+    @UploadedFile() file: Express.Multer.File,
+  ): Promise<CardAttachment> {
+    return this.cardsService.addAttachment(id, file);
+  }
+
+  @Delete('attachments/:attachmentId')
+  removeAttachment(@Param('attachmentId') attachmentId: string): Promise<void> {
+    return this.cardsService.removeAttachment(attachmentId);
   }
 }

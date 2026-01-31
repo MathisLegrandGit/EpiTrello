@@ -41,15 +41,15 @@ export class NotificationsService {
   }
 
   async markAsRead(notificationId: string): Promise<Notification> {
-    const { data, error } = await this.getClient()
+    const response = await this.getClient()
       .from('notifications')
       .update({ read: true })
       .eq('id', notificationId)
       .select()
       .single();
 
-    if (error) throw error;
-    return data as Notification;
+    if (response.error) throw response.error;
+    return response.data as Notification;
   }
 
   async markAllAsRead(userId: string): Promise<void> {
@@ -74,13 +74,13 @@ export class NotificationsService {
   async create(
     notification: Omit<Notification, 'id' | 'created_at'>,
   ): Promise<Notification> {
-    const { data, error } = await this.getClient()
+    const response = await this.getClient()
       .from('notifications')
       .insert(notification)
       .select()
       .single();
 
-    if (error) throw error;
-    return data as Notification;
+    if (response.error) throw response.error;
+    return response.data as Notification;
   }
 }

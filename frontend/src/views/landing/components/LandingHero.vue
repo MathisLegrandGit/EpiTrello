@@ -58,7 +58,7 @@
 
                     <p class="text-lg text-slate-400 max-w-md mx-auto lg:mx-0 mb-8 leading-relaxed">
                         EpiTrello is the visual workspace where teams see work get done.
-                        Drag tasks, collaborate in real-time, and ship — all in one place.
+                        Drag tasks, collaborate in real-time, and ship, all in one place.
                     </p>
 
                     <div class="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
@@ -456,8 +456,14 @@ onUnmounted(() => {
 /* Typewriter text */
 .typewriter-container {
     display: inline-block;
-    min-width: 280px;
-    text-align: left;
+    text-align: center;
+}
+
+/* On larger screens, align left to match the left-aligned copy */
+@media (min-width: 1024px) {
+    .typewriter-container {
+        text-align: left;
+    }
 }
 
 .typewriter-gradient {

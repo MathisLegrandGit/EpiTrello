@@ -30,31 +30,32 @@ export class LabelsService {
   }
 
   async findOne(id: string): Promise<Label> {
-    const { data, error } = await this.supabaseService
+    const response = await this.supabaseService
       .getAdminClient()
       .from('labels')
       .select('*')
       .eq('id', id)
       .single();
 
-    if (error) throw new NotFoundException(`Label with ID ${id} not found`);
-    return data as Label;
+    if (response.error)
+      throw new NotFoundException(`Label with ID ${id} not found`);
+    return response.data as Label;
   }
 
   async create(label: Label): Promise<Label> {
-    const { data, error } = await this.supabaseService
+    const response = await this.supabaseService
       .getAdminClient()
       .from('labels')
       .insert(label)
       .select()
       .single();
 
-    if (error) throw error;
-    return data as Label;
+    if (response.error) throw response.error;
+    return response.data as Label;
   }
 
   async update(id: string, label: Partial<Label>): Promise<Label> {
-    const { data, error } = await this.supabaseService
+    const response = await this.supabaseService
       .getAdminClient()
       .from('labels')
       .update(label)
@@ -62,8 +63,9 @@ export class LabelsService {
       .select()
       .single();
 
-    if (error) throw new NotFoundException(`Label with ID ${id} not found`);
-    return data as Label;
+    if (response.error)
+      throw new NotFoundException(`Label with ID ${id} not found`);
+    return response.data as Label;
   }
 
   async remove(id: string): Promise<void> {
