@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch, onUnmounted, nextTick } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 
 interface Props {
     modelValue: string | null
@@ -22,6 +22,17 @@ const selectedMinute = ref(0)
 const triggerRef = ref<HTMLElement | null>(null)
 const calendarRef = ref<HTMLElement | null>(null)
 const calendarPosition = ref({ top: 0, left: 0, openUpward: false })
+const isMobile = ref(false)
+
+// Check if mobile
+function checkMobile() {
+    isMobile.value = window.matchMedia('(max-width: 640px)').matches
+}
+
+onMounted(() => {
+    checkMobile()
+    window.addEventListener('resize', checkMobile)
+})
 
 // Parse initial value
 watch(() => props.modelValue, (newVal) => {
@@ -174,6 +185,17 @@ function validateMinute() {
 const formattedDate = computed(() => {
     if (!props.modelValue) return null
     const date = new Date(props.modelValue)
+
+    // Use compact format on mobile
+    if (isMobile.value) {
+        return date.toLocaleDateString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        })
+    }
+
     return date.toLocaleDateString('en-US', {
         month: 'short',
         day: 'numeric',
@@ -254,6 +276,7 @@ onUnmounted(() => {
     document.removeEventListener('click', handleClickOutside)
     window.removeEventListener('scroll', updateCalendarPosition, true)
     window.removeEventListener('resize', updateCalendarPosition)
+    window.removeEventListener('resize', checkMobile)
 })
 </script>
 
@@ -299,6 +322,8 @@ onUnmounted(() => {
 
         <!-- Calendar Dropdown -->
         <Teleport to="body">
+            <!-- Backdrop to capture outside clicks -->
+            <div v-if="isOpen" class="fixed inset-0 z-99" @click="isOpen = false" />
             <div v-if="isOpen" ref="calendarRef"
                 :class="isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'"
                 class="date-picker-calendar fixed z-100 w-72 rounded-xl border shadow-2xl overflow-hidden" :style="{

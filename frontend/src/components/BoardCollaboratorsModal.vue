@@ -13,8 +13,9 @@
                     <div class="flex items-center justify-between">
                         <div class="flex items-center gap-3">
                             <div class="p-2 rounded-xl" :class="isDarkMode ? 'bg-cyan-500/20' : 'bg-cyan-100'">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" :class="isDarkMode ? 'text-cyan-400' : 'text-cyan-600'"
-                                    viewBox="0 0 20 20" fill="currentColor">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5"
+                                    :class="isDarkMode ? 'text-cyan-400' : 'text-cyan-600'" viewBox="0 0 20 20"
+                                    fill="currentColor">
                                     <path
                                         d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z" />
                                 </svg>
@@ -72,8 +73,28 @@
                                 <div class="flex items-center gap-2">
                                     <!-- Role Dropdown -->
                                     <div class="relative" @click.stop>
+                                        <!-- Mobile: Icon only -->
                                         <button @click="toggleRoleDropdown(user.id, $event)"
-                                            class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all"
+                                            class="sm:hidden p-1.5 rounded-lg transition-all" :class="(selectedRoles[user.id] || 'editor') === 'editor'
+                                                ? 'bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30'
+                                                : 'bg-sky-500/20 text-sky-400 hover:bg-sky-500/30'">
+                                            <svg v-if="(selectedRoles[user.id] || 'editor') === 'editor'"
+                                                class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                    d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                            </svg>
+                                            <svg v-else class="w-4 h-4" fill="none" stroke="currentColor"
+                                                viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                    d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                    d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                            </svg>
+                                        </button>
+
+                                        <!-- Desktop: Full Text -->
+                                        <button @click="toggleRoleDropdown(user.id, $event)"
+                                            class="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all"
                                             :class="(selectedRoles[user.id] || 'editor') === 'editor'
                                                 ? 'bg-linear-to-r from-emerald-500 to-emerald-600 text-white shadow-sm shadow-emerald-500/25 hover:shadow-emerald-500/40'
                                                 : 'bg-linear-to-r from-sky-500 to-sky-600 text-white shadow-sm shadow-sky-500/25 hover:shadow-sky-500/40'">
@@ -136,60 +157,164 @@
 
                         <div v-else class="space-y-2">
                             <div v-for="collab in allCollaborators" :key="collab.id || collab.user_id"
-                                class="flex items-center justify-between p-3 rounded-xl"
-                                :class="isDarkMode ? 'bg-white/5' : 'bg-slate-50'">
-                                <div class="flex items-center gap-3">
-                                    <UserAvatar :avatarUrl="collab.user?.avatar_url"
-                                        :name="collab.user?.full_name || collab.user?.username" size="lg" />
-                                    <div>
-                                        <div class="flex items-center gap-2">
-                                            <p class="font-medium"
+                                class="p-3 rounded-xl" :class="isDarkMode ? 'bg-white/5' : 'bg-slate-50'">
+                                <!-- Mobile Layout: Vertical stacking -->
+                                <div class="sm:hidden">
+                                    <div class="flex items-center gap-3">
+                                        <UserAvatar :avatarUrl="collab.user?.avatar_url"
+                                            :name="collab.user?.full_name || collab.user?.username" size="lg" />
+                                        <div class="flex-1 min-w-0">
+                                            <p class="font-medium truncate"
                                                 :class="isDarkMode ? 'text-white' : 'text-slate-900'">
                                                 {{ collab.user?.full_name || collab.user?.username }}
                                             </p>
-                                            <span class="px-2 py-0.5 rounded-full text-xs font-medium"
-                                                :class="collab.role === 'owner'
-                                                    ? (isDarkMode ? 'bg-amber-500/20 text-amber-400' : 'bg-amber-100 text-amber-700')
-                                                    : (isDarkMode ? 'bg-blue-500/20 text-blue-400' : 'bg-blue-100 text-blue-700')">
-                                                {{ capitalize(collab.role) }}
-                                            </span>
-                                            <span v-if="collab.status === 'pending'"
-                                                class="px-2 py-0.5 rounded-full text-xs font-medium"
-                                                :class="isDarkMode ? 'bg-amber-500/20 text-amber-500' : 'bg-amber-100 text-amber-700'">
-                                                Pending
-                                            </span>
+                                            <p class="text-xs truncate"
+                                                :class="isDarkMode ? 'text-slate-500' : 'text-slate-500'">
+                                                @{{ collab.user?.username }}
+                                            </p>
                                         </div>
-                                        <p class="text-xs" :class="isDarkMode ? 'text-slate-500' : 'text-slate-500'">
-                                            @{{ collab.user?.username }}
-                                        </p>
+                                        <!-- Mobile action buttons -->
+                                        <div class="flex items-center gap-1.5 shrink-0">
+                                            <!-- Owner text badge (same as desktop) -->
+                                            <span v-if="collab.role === 'owner'"
+                                                class="px-2 py-0.5 rounded-full text-xs font-medium"
+                                                :class="isDarkMode ? 'bg-amber-500/20 text-amber-400' : 'bg-amber-100 text-amber-700'">
+                                                Owner
+                                            </span>
+
+                                            <!-- Pending badge (Moved before role buttons) -->
+                                            <span v-if="collab.status === 'pending'" class="p-1.5 rounded-lg"
+                                                :class="isDarkMode ? 'bg-amber-500/20 text-amber-400' : 'bg-amber-100 text-amber-600'">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor"
+                                                    viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                                        stroke-width="2"
+                                                        d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                </svg>
+                                            </span>
+
+                                            <!-- Role dropdown button for non-owners -->
+                                            <button v-if="isOwner && collab.role !== 'owner'"
+                                                @click="toggleCollabDropdown(collab.user_id, $event)"
+                                                class="p-1.5 rounded-lg transition-all" :class="collab.role === 'editor'
+                                                    ? 'bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30'
+                                                    : 'bg-sky-500/20 text-sky-400 hover:bg-sky-500/30'">
+                                                <!-- Editor icon -->
+                                                <svg v-if="collab.role === 'editor'" class="w-4 h-4" fill="none"
+                                                    stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                                        stroke-width="2"
+                                                        d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                                </svg>
+                                                <!-- Viewer icon -->
+                                                <svg v-else class="w-4 h-4" fill="none" stroke="currentColor"
+                                                    viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                                        stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                                        stroke-width="2"
+                                                        d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                                </svg>
+                                            </button>
+
+                                            <!-- Role badge for viewers (non-owner viewing) -->
+                                            <span v-if="!isOwner && collab.role !== 'owner'" class="p-1.5 rounded-lg"
+                                                :class="collab.role === 'editor'
+                                                    ? 'bg-emerald-500/20 text-emerald-400'
+                                                    : 'bg-sky-500/20 text-sky-400'">
+                                                <svg v-if="collab.role === 'editor'" class="w-4 h-4" fill="none"
+                                                    stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                                        stroke-width="2"
+                                                        d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                                </svg>
+                                                <svg v-else class="w-4 h-4" fill="none" stroke="currentColor"
+                                                    viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                                        stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                                        stroke-width="2"
+                                                        d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                                </svg>
+                                            </span>
+                                            <!-- Delete button -->
+                                            <button v-if="isOwner && collab.role !== 'owner'"
+                                                @click="removeCollaborator(collab.user_id)"
+                                                :disabled="removing === collab.user_id"
+                                                class="p-1.5 rounded-lg bg-red-500/20 text-red-400 hover:bg-red-500/30 transition-colors disabled:opacity-50">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor"
+                                                    viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                                        stroke-width="2"
+                                                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                </svg>
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
-                                <div class="flex items-center gap-2">
-                                    <!-- Role Dropdown for owner (only on non-owner collaborators) -->
-                                    <div v-if="isOwner && collab.role !== 'owner'" class="relative" @click.stop>
-                                        <button @click="toggleCollabDropdown(collab.user_id, $event)"
-                                            class="flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs font-medium transition-all"
-                                            :class="collab.role === 'editor'
-                                                ? 'bg-linear-to-r from-emerald-500 to-emerald-600 text-white shadow-sm shadow-emerald-500/25 hover:shadow-emerald-500/40'
-                                                : 'bg-linear-to-r from-sky-500 to-sky-600 text-white shadow-sm shadow-sky-500/25 hover:shadow-sky-500/40'">
-                                            <span class="text-white/80">Role:</span>
-                                            <span class="font-semibold">{{ capitalize(collab.role) }}</span>
-                                            <svg class="w-3 h-3 text-white/70" fill="none" stroke="currentColor"
+
+                                <!-- Desktop Layout: Horizontal row -->
+                                <div class="hidden sm:flex items-center justify-between gap-3">
+                                    <div class="flex items-center gap-3 min-w-0">
+                                        <UserAvatar :avatarUrl="collab.user?.avatar_url"
+                                            :name="collab.user?.full_name || collab.user?.username" size="lg" />
+                                        <div class="min-w-0">
+                                            <div class="flex items-center gap-2 flex-wrap">
+                                                <p class="font-medium truncate"
+                                                    :class="isDarkMode ? 'text-white' : 'text-slate-900'">
+                                                    {{ collab.user?.full_name || collab.user?.username }}
+                                                </p>
+                                                <span class="px-2 py-0.5 rounded-full text-xs font-medium shrink-0"
+                                                    :class="collab.role === 'owner'
+                                                        ? (isDarkMode ? 'bg-amber-500/20 text-amber-400' : 'bg-amber-100 text-amber-700')
+                                                        : collab.role === 'editor'
+                                                            ? (isDarkMode ? 'bg-emerald-500/20 text-emerald-400' : 'bg-emerald-100 text-emerald-700')
+                                                            : (isDarkMode ? 'bg-sky-500/20 text-sky-400' : 'bg-sky-100 text-sky-700')">
+                                                    {{ capitalize(collab.role) }}
+                                                </span>
+                                                <span v-if="collab.status === 'pending'"
+                                                    class="px-2 py-0.5 rounded-full text-xs font-medium shrink-0"
+                                                    :class="isDarkMode ? 'bg-amber-500/20 text-amber-500' : 'bg-amber-100 text-amber-700'">
+                                                    Pending
+                                                </span>
+                                            </div>
+                                            <p class="text-xs truncate"
+                                                :class="isDarkMode ? 'text-slate-500' : 'text-slate-500'">
+                                                @{{ collab.user?.username }}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-center gap-1.5 shrink-0">
+                                        <!-- Role change button (icon only, like mobile) -->
+                                        <button v-if="isOwner && collab.role !== 'owner'"
+                                            @click="toggleCollabDropdown(collab.user_id, $event)"
+                                            class="p-1.5 rounded-lg transition-all" :class="collab.role === 'editor'
+                                                ? 'bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30'
+                                                : 'bg-sky-500/20 text-sky-400 hover:bg-sky-500/30'">
+                                            <svg v-if="collab.role === 'editor'" class="w-4 h-4" fill="none"
+                                                stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                    d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                            </svg>
+                                            <svg v-else class="w-4 h-4" fill="none" stroke="currentColor"
                                                 viewBox="0 0 24 24">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                                    d="M19 9l-7 7-7-7" />
+                                                    d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                    d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                            </svg>
+                                        </button>
+                                        <!-- Delete button -->
+                                        <button v-if="isOwner && collab.role !== 'owner'"
+                                            @click="removeCollaborator(collab.user_id)"
+                                            :disabled="removing === collab.user_id"
+                                            class="p-1.5 rounded-lg bg-red-500/20 text-red-400 hover:bg-red-500/30 transition-colors disabled:opacity-50">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                                             </svg>
                                         </button>
                                     </div>
-                                    <button v-if="isOwner && collab.role !== 'owner'"
-                                        @click="removeCollaborator(collab.user_id)"
-                                        :disabled="removing === collab.user_id"
-                                        class="p-1.5 rounded-lg bg-red-500/20 text-red-400 hover:bg-red-500/30 transition-colors disabled:opacity-50">
-                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                        </svg>
-                                    </button>
                                 </div>
                             </div>
                         </div>

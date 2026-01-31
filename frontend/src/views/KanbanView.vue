@@ -19,7 +19,6 @@ import type { Card } from '@/services/api'
 const route = useRoute()
 const router = useRouter()
 
-// Board state from composable
 const {
   columns,
   labels,
@@ -34,7 +33,15 @@ const {
   addCard,
   updateCard,
   deleteCard,
+  moveCard,
 } = useBoard()
+
+// Column info for mobile move dropdown
+const allColumnsInfo = computed(() => columns.value.map(c => ({
+  id: c.id,
+  title: c.title,
+  color: c.color
+})))
 
 // UI state
 const isDarkMode = ref(true)
@@ -246,6 +253,13 @@ function handleCardMouseDown(event: MouseEvent, card: Card, columnId: string) {
   onCardMouseDown(event, card, columnId)
 }
 
+// Handle mobile card move via dropdown
+async function handleMobileCardMove(card: Card, sourceColumnId: string, targetColumnId: string) {
+  const targetColumn = columns.value.find(c => c.id === targetColumnId)
+  const position = targetColumn?.cards.length || 0
+  await moveCard(card, sourceColumnId, targetColumnId, position)
+}
+
 function openNotifications() {
   isNotificationsOpen.value = !isNotificationsOpen.value
 }
@@ -395,13 +409,15 @@ onUnmounted(() => {
           <KanbanColumn v-for="column in columns" :key="column.id" :column="column" :isDarkMode="isDarkMode"
             :labels="labels" :menuOpen="columnMenuOpen === column.id"
             :colorPickerOpen="colorPickerColumnId === column.id" :editingTitle="editingColumnId === column.id"
-            :columnColors="columnColors" :canEdit="canEdit" @toggle-menu="handleToggleColumnMenu(column.id)"
-            @toggle-color-picker="handleToggleColorPicker(column.id)"
+            :columnColors="columnColors" :canEdit="canEdit" :allColumns="allColumnsInfo"
+            @toggle-menu="handleToggleColumnMenu(column.id)" @toggle-color-picker="handleToggleColorPicker(column.id)"
             @update-color="(color) => handleUpdateColumnColor(column.id, color)" @delete="handleDeleteColumn(column.id)"
             @start-editing-title="handleStartEditingColumn(column.id)"
             @save-title="(title) => handleSaveColumnTitle(column.id, title)" @cancel-editing="handleCancelEditingColumn"
             @add-card="(title) => handleAddCard(column.id, title)"
-            @card-mousedown="(event, card) => handleCardMouseDown(event, card, column.id)" />
+            @card-mousedown="(event, card) => handleCardMouseDown(event, card, column.id)"
+            @card-click="(card) => openCardDetail(card, column.id)"
+            @move-card="(card, targetColumnId) => handleMobileCardMove(card, column.id, targetColumnId)" />
 
           <!-- Add Column Button (only for editors/owners) -->
           <AddColumnButton v-if="canEdit" :isDarkMode="isDarkMode" @add-column="handleAddColumn" />

@@ -11,6 +11,12 @@ interface Column {
     cards: Card[]
 }
 
+interface ColumnInfo {
+    id: string
+    title: string
+    color?: string
+}
+
 const props = defineProps<{
     column: Column
     isDarkMode: boolean
@@ -20,6 +26,7 @@ const props = defineProps<{
     editingTitle: boolean
     columnColors: string[]
     canEdit?: boolean
+    allColumns?: ColumnInfo[]
 }>()
 
 const emit = defineEmits<{
@@ -33,6 +40,8 @@ const emit = defineEmits<{
     (e: 'save-title', title: string): void
     (e: 'cancel-editing'): void
     (e: 'card-mousedown', event: MouseEvent, card: Card): void
+    (e: 'card-click', card: Card): void
+    (e: 'move-card', card: Card, targetColumnId: string): void
 }>()
 
 const isAddingCard = ref(false)
@@ -80,7 +89,7 @@ function saveTitle() {
 <template>
     <div :data-column-id="column.id"
         :class="isDarkMode ? 'bg-slate-800/50 border-slate-700/50 backdrop-blur-sm' : 'bg-slate-100 border-slate-300 backdrop-blur-sm'"
-        class="flex flex-col rounded-2xl p-5 border shadow-sm min-w-[320px] shrink-0 transition-all duration-200 hover:shadow-md animate-slide-up">
+        class="flex flex-col rounded-2xl p-4 sm:p-5 border shadow-sm w-[280px] sm:w-[320px] shrink-0 transition-all duration-200 hover:shadow-md animate-slide-up overflow-hidden">
         <!-- Column Header -->
         <div class="mb-4 flex items-center justify-between">
             <div class="flex items-center gap-3 min-w-0">
@@ -168,7 +177,7 @@ function saveTitle() {
         </div>
 
         <!-- Cards Container -->
-        <div class="flex-1 space-y-3 min-h-[80px]">
+        <div class="flex-1 space-y-3 min-h-[80px] w-full overflow-hidden">
             <!-- Empty State with dotted border (only when no cards AND not adding) -->
             <div v-if="column.cards.length === 0 && !isAddingCard"
                 :class="isDarkMode ? 'border-slate-600/50 text-slate-500' : 'border-slate-400 text-slate-500'"
@@ -192,7 +201,9 @@ function saveTitle() {
 
             <!-- Existing Cards -->
             <KanbanCard v-for="card in column.cards" :key="card.id" :card="card" :isDarkMode="isDarkMode"
-                :labels="labels" :columnId="column.id" @mousedown="emit('card-mousedown', $event, card)" />
+                :labels="labels" :columnId="column.id" :allColumns="allColumns" :canEdit="canEdit"
+                @mousedown="emit('card-mousedown', $event, card)" @click="emit('card-click', card)"
+                @move-to-column="(targetId) => emit('move-card', card, targetId)" />
         </div>
 
         <!-- Add Card Button (only for editors) -->
